@@ -71,7 +71,8 @@ class AudioInstructTab:
                             self.examples_component = gr.Examples(
                                 examples=examples_data,
                                 inputs=[instruct_type, text_input, prompt_audio] + structured_param_inputs + [seed],
-                                label="点击示例以填充输入"
+                                label="点击示例以填充输入",
+                                cache_examples="lazy"
                             )
 
                             generate_btn = gr.Button("生成音频", variant="primary")

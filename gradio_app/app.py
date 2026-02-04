@@ -541,14 +541,14 @@ class SpeechService:
 class GradioInterface:
     def __init__(self, speech_service: SpeechService):
         self.service = speech_service
-        
+
         # 初始化 UniAudio V4 MOE 演示 Tab
         self.uniaudio_demo_tab = UniAudioDemoTab(
             webgw_url=self.service.WEB_GW_API_URL,
             webgw_api_key=self.service.WEB_GW_API_KEY,
             webgw_app_id=self.service.WEB_GW_APP_ID
         )
-        
+
         self.custom_css = """
             .equal-height-group {
                 height: 100%;
@@ -644,9 +644,9 @@ class GradioInterface:
 
                     with gr.Row():
                         with gr.Column(scale=2, min_width="600px"):
-                            gr.Examples(examples=self._get_examples(), inputs=[input_audio, instruction_box], outputs=[input_audio, instruction_box, transcription_box, output_text, output_audio], fn=self.process_edit_example, label="语音编辑示例", run_on_click=True)
+                            gr.Examples(examples=self._get_examples(), inputs=[input_audio, instruction_box], outputs=[input_audio, instruction_box, transcription_box, output_text, output_audio], fn=self.process_edit_example, label="语音编辑示例", run_on_click=True, cache_examples="lazy")
                         with gr.Column(scale=1, min_width="300px"):
-                            gr.Examples(examples=self._get_tts_examples(), inputs=[prompt_audio, tts_box], outputs=[prompt_audio, tts_box], fn=self.fill_tts_example, label="语音合成示例", run_on_click=False)
+                            gr.Examples(examples=self._get_tts_examples(), inputs=[prompt_audio, tts_box], outputs=[prompt_audio, tts_box], fn=self.fill_tts_example, label="语音合成示例", run_on_click=False, cache_examples="lazy")
 
                 # 引入 UniAudio V4 MOE 综合演示标签页
                 self.uniaudio_demo_tab.create_tab()
