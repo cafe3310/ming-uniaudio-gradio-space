@@ -1,0 +1,92 @@
+name: Sync to Hugging Face and ModelScope
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-to-huggingface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Sync to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # 【请修改】你的 HF 用户名
+          HF_USERNAME: cafe3310
+          # 【请修改】你的 HF Space 名称
+          SPACE_NAME: ming-uniaudio-demo
+          # 【请修改】要部署的源目录（根目录填 . ，子目录填目录名）
+          SOURCE_DIR: gradio_app
+        run: |
+          echo "Cloning Hugging Face Space..."
+          rm -rf /tmp/hf-space
+          git clone https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME /tmp/hf-space
+          
+          echo "Syncing files..."
+          # 使用 rsync 同步，--delete 确保删除 GitHub 上已移除的文件
+          rsync -av --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            $SOURCE_DIR/ /tmp/hf-space/
+            
+          cd /tmp/hf-space
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sync from GitHub: $(git rev-parse --short HEAD)"
+            git push origin main
+          fi
+
+  sync-to-modelscope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Sync to ModelScope Space
+        env:
+          MODELSCOPE_TOKEN: ${{ secrets.MODELSCOPE_TOKEN }}
+          # ModelScope 用户名
+          MS_USERNAME: antsipan
+          # ModelScope Space 名称
+          SPACE_NAME: ming-uniaudio-demo
+          # 要部署的源目录
+          SOURCE_DIR: gradio_app
+        run: |
+          echo "Cloning ModelScope Space..."
+          rm -rf /tmp/ms-space
+          # ModelScope Git 地址格式
+          git clone https://oauth2:$MODELSCOPE_TOKEN@www.modelscope.cn/studios/$MS_USERNAME/$SPACE_NAME.git /tmp/ms-space
+          
+          echo "Syncing files..."
+          rsync -av --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            $SOURCE_DIR/ /tmp/ms-space/
+
+          cd /tmp/ms-space
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sync from GitHub: $(git rev-parse --short HEAD)"
+            # 注意：ModelScope 默认分支可能是 master，请根据实际情况调整
+            git push origin master
+          fi
