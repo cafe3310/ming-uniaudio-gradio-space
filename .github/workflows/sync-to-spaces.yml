@@ -39,24 +39,9 @@ jobs:
           # 确保 LFS 配置被同步
           cp .gitattributes /tmp/hf-space/
 
-          # 创建 Hugging Face 必须的 README.md 元数据
-          cat <<EOF > /tmp/hf-space/README.md
----
-title: Ming UniAudio Demo
-emoji: 🎵
-colorFrom: indigo
-colorTo: blue
-sdk: gradio
-sdk_version: 5.12.0
-app_file: app.py
-pinned: false
-license: apache-2.0
-short_description: Multi-modal audio generation and processing demo.
----
-
-# Ming UniAudio Demo
-This is a Gradio-based demo for the Ming UniAudio model.
-EOF
+          # 设置 Hugging Face 专属 README
+          mv /tmp/hf-space/huggingface_readme.md /tmp/hf-space/README.md
+          rm -f /tmp/hf-space/modelscope_readme.md
             
           cd /tmp/hf-space
           # 初始化 LFS
@@ -102,6 +87,10 @@ EOF
             --exclude '.github/' \
             --exclude '.gitignore' \
             $SOURCE_DIR/ /tmp/ms-space/
+
+          # 设置 ModelScope 专属 README
+          mv /tmp/ms-space/modelscope_readme.md /tmp/ms-space/README.md
+          rm -f /tmp/ms-space/huggingface_readme.md
 
           cd /tmp/ms-space
           git config --global user.email "action@github.com"
