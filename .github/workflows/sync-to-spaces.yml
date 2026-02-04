@@ -35,8 +35,14 @@ jobs:
             --exclude '.github/' \
             --exclude '.gitignore' \
             $SOURCE_DIR/ /tmp/hf-space/
+          
+          # 确保 LFS 配置被同步
+          cp .gitattributes /tmp/hf-space/
             
           cd /tmp/hf-space
+          # 初始化 LFS
+          git lfs install
+          
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
           
