@@ -1,0 +1,72 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.swp
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+wheels/
+*.egg-info/
+.installed.cfg
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.hypothesis/
+.pytest_cache/
+
+# Developer tools
+.vscode/
+.idea/
+
+# Virtual environment
+venv/
+env/
+.venv/
+.virtualenv/
+ENV/
+env.bak/
+bin/
+lib/
+include/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+app.ipynb
+# We want to keep app.ipynb until its content is fully migrated, but it often creates checkpoints.
+# It should be deleted after migration.
+
+# Logs
+*.log
+log/
+
+# OS generated files
+.DS_Store
+.Trashes
+Thumbs.db
+
+# Temporary files
+*~
+.#*
+
+# Outputs
+out.wav # Mentioned in app.ipynb and modeling_bailingmm.py
+
+# Sensitive files
+gradio_app/.secret
+.env
