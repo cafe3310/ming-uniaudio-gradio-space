@@ -1009,4 +1009,4 @@ if __name__ == "__main__":
 
     # 创建并启动Gradio界面
     gradio_interface = GradioInterface(speech_service)
-    gradio_interface.launch()
+    gradio_interface.demo.queue(default_concurrency_limit=10).launch()

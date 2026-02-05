@@ -55,7 +55,7 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "Sync from GitHub: $(git rev-parse --short HEAD)"
-            git push origin main
+            git push origin main --force
           fi
 
   sync-to-modelscope:
