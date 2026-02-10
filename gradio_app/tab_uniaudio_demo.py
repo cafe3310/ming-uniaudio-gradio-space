@@ -207,13 +207,13 @@ class UniAudioDemoTab:
                             i_tts_type = gr.Dropdown(
                                 ["dialect", "emotion", "IP", "style", "basic"],
                                 label="指令类型",
-                                value="emotion",
+                                value="dialect",
                             )
                             i_tts_text = gr.Textbox(label="合成文本", info="输入要合成的语音文本。")
                             i_tts_prompt = gr.Audio(
                                 type="filepath",
                                 label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆基础音色。",
-                                sources=["upload"],
+                                sources=["upload", "microphone"],
                             )
 
                             with gr.Accordion("指令详情 (根据指令类型填写)", open=True):
@@ -293,7 +293,7 @@ class UniAudioDemoTab:
                             zs_tts_prompt = gr.Audio(
                                 type="filepath",
                                 label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆音色。",
-                                sources=["upload"],
+                                sources=["upload", "microphone"],
                             )
                             zs_tts_btn = gr.Button("克隆并生成语音", variant="primary")
                         with gr.Column(scale=1):
@@ -312,10 +312,14 @@ class UniAudioDemoTab:
                                 info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人。e.g. speaker_1:就比如说各种就是给别人提供，提供帮助的都可以说是服务的\n speaker_2:是的 不管是什么，就是说感觉都是，大家都，都可以说是服务业的一方面\n",
                             )
                             pod_prompt1 = gr.Audio(
-                                type="filepath", label="说话人1参考音频", sources=["upload"]
+                                type="filepath",
+                                label="说话人1参考音频",
+                                sources=["upload", "microphone"],
                             )
                             pod_prompt2 = gr.Audio(
-                                type="filepath", label="说话人2参考音频", sources=["upload"]
+                                type="filepath",
+                                label="说话人2参考音频",
+                                sources=["upload", "microphone"],
                             )
                             pod_btn = gr.Button("生成播客", variant="primary")
                         with gr.Column(scale=1):
@@ -332,7 +336,9 @@ class UniAudioDemoTab:
                         with gr.Column(scale=2):
                             swb_text = gr.Textbox(label="语音文本")
                             swb_prompt = gr.Audio(
-                                type="filepath", label="说话人参考音频", sources=["upload"]
+                                type="filepath",
+                                label="说话人参考音频",
+                                sources=["upload", "microphone"],
                             )
                             gr.Markdown("##### 背景音乐描述")
                             with gr.Row():
@@ -397,7 +403,7 @@ class UniAudioDemoTab:
                                 label="主题 (Theme)",
                                 value="庆典与喜悦",
                             )
-                            bgm_duration = gr.Slider(30, 120, value=35, step=1, label="时长 (秒)")
+                            bgm_duration = gr.Slider(30, 60, value=35, step=1, label="时长 (秒)")
                             bgm_btn = gr.Button("生成背景音乐", variant="primary")
                         with gr.Column(scale=1):
                             bgm_status = gr.Markdown(value="💡 请描述您想要的音乐。")
