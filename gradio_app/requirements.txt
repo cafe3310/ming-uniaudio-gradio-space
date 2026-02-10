@@ -6,3 +6,4 @@ setuptools
 python-dotenv
 watchfiles
 pydub
+pypinyin
