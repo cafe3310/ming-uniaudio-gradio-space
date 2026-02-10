@@ -1,30 +1,31 @@
 # -*- coding: utf-8 -*-
-import os
-import gradio as gr
-from loguru import logger
 import base64
-import requests
-import json
 import io
-from scipy.io import wavfile
-from dotenv import load_dotenv
-import uuid
-import time
+import json
+import os
 import random
+import time
+import uuid
+
+import gradio as gr
+import requests
+from dotenv import load_dotenv
+from loguru import logger
 from pydub import AudioSegment
+from scipy.io import wavfile
 from tab_uniaudio_demo import UniAudioDemoTab
 
 # 加载 .secret 文件中的环境变量
-load_dotenv(dotenv_path='.secret')
+load_dotenv(dotenv_path=".secret")
 
-blank_rate, blank_audio_data = wavfile.read('./audio/blank.wav')
+blank_rate, blank_audio_data = wavfile.read("./audio/blank.wav")
 
 
 # 模型服务类 ===========================================================
 class SpeechService:
     def __init__(self):
         # API Configuration
-        self.use_intranet_api = os.environ.get("USE_INTRANET_API", "false").lower() == 'true'
+        self.use_intranet_api = os.environ.get("USE_INTRANET_API", "false").lower() == "true"
 
         # WebGW Internet API
         self.WEB_GW_API_URL = os.environ.get("WEB_GW_API_URL")
@@ -32,15 +33,17 @@ class SpeechService:
         self.WEB_GW_APP_ID = os.environ.get("WEB_GW_APP_ID")
 
         # Other configs
-        self.dump_reqs = os.environ.get("DUMP_REQS", "false").lower() == 'true'
-        self.sample_rate = 16000 # Gradio expects a sample rate for audio output
+        self.dump_reqs = os.environ.get("DUMP_REQS", "false").lower() == "true"
+        self.sample_rate = 16000  # Gradio expects a sample rate for audio output
 
         logger.info(f"SpeechService initialized. Using Intranet API: {self.use_intranet_api}")
         if not self.use_intranet_api:
             logger.info(f"WebGW API URL: {self.WEB_GW_API_URL}")
             logger.info(f"WebGW APP ID: {self.WEB_GW_APP_ID}")
 
-    def _call_webgw_api(self, call_name: str, call_args: dict, api_project: str = "251220-ming-uniaudio") -> dict:
+    def _call_webgw_api(
+        self, call_name: str, call_args: dict, api_project: str = "251220-ming-uniaudio"
+    ) -> dict:
         """
         Calls the central WebGW proxy API and transforms the response to match the intranet format.
         """
@@ -54,13 +57,13 @@ class SpeechService:
             "api_key": self.WEB_GW_API_KEY,
             "api_project": api_project,
             "call_name": call_name,
-            "call_token": "token", # Placeholder
-            "call_args": call_args
+            "call_token": "token",  # Placeholder
+            "call_args": call_args,
         }
         headers = {
             "Content-Type": "application/json",
             "x-webgw-appid": self.WEB_GW_APP_ID,
-            "x-webgw-version": "2.0"
+            "x-webgw-version": "2.0",
         }
 
         try:
@@ -77,7 +80,9 @@ class SpeechService:
                     )
                     logger.info(log_message)
                 except Exception as e:
-                    logger.warning(f"DUMP_REQS: Failed to serialize WebGW request data for logging: {e}")
+                    logger.warning(
+                        f"DUMP_REQS: Failed to serialize WebGW request data for logging: {e}"
+                    )
 
             response = requests.post(api_url, headers=headers, json=request_body, timeout=20)
             response.raise_for_status()
@@ -85,7 +90,9 @@ class SpeechService:
             response_data = response.json()
 
             # response_data may be large, consider truncating if necessary (4KB)
-            logger.info(f"WebGW API response data: {json.dumps(response_data, indent=2)[:4096]}{'... [truncated]' if len(json.dumps(response_data)) > 4096 else ''}")
+            logger.info(
+                f"WebGW API response data: {json.dumps(response_data, indent=2)[:4096]}{'... [truncated]' if len(json.dumps(response_data)) > 4096 else ''}"
+            )
 
             # response headers
             resp_headers = response.headers
@@ -94,16 +101,18 @@ class SpeechService:
             # Transform the WebGW response to mimic the intranet response structure.
             if response_data.get("success"):
                 result_obj = response_data.get("resultObj", {})
-                inner_result_str = result_obj.get("result", '{}') # Default to empty JSON string
+                inner_result_str = result_obj.get("result", "{}")  # Default to empty JSON string
                 return {
                     "success": True,
-                    "resultMap": { "result": inner_result_str },
-                    "errorMessage": result_obj.get("result_message", "")
+                    "resultMap": {"result": inner_result_str},
+                    "errorMessage": result_obj.get("result_message", ""),
                 }
             else:
                 # Handle WebGW level errors or model errors proxied through WebGW
-                trace_msg = response_data.get('traceMsg')
-                error_msg = trace_msg or response_data.get('errorMessage', 'Unknown WebGW API error')
+                trace_msg = response_data.get("traceMsg")
+                error_msg = trace_msg or response_data.get(
+                    "errorMessage", "Unknown WebGW API error"
+                )
                 logger.error(f"WebGW API call failed: {error_msg}")
                 return {"success": False, "errorMessage": error_msg}
 
@@ -111,7 +120,9 @@ class SpeechService:
             logger.error(f"WebGW API request failed: {e}")
             return {"success": False, "errorMessage": f"API request failed: {e}"}
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode WebGW API response JSON: {e}, Response content: {response.text}")
+            logger.error(
+                f"Failed to decode WebGW API response JSON: {e}, Response content: {response.text}"
+            )
             return {"success": False, "errorMessage": f"Failed to decode API response JSON: {e}"}
 
     def _preprocess_audio(self, audio_path: str) -> str:
@@ -126,9 +137,11 @@ class SpeechService:
 
         # Heuristic: Only process if it's a generic recording filename.
         # Assuming 'audio.wav' is the default name for microphone recordings from Gradio.
-        if os.path.basename(audio_path) == 'audio.wav':
+        if os.path.basename(audio_path) == "audio.wav":
             try:
-                logger.info(f"Detected microphone recording: {audio_path}. Starting preprocessing...")
+                logger.info(
+                    f"Detected microphone recording: {audio_path}. Starting preprocessing..."
+                )
                 audio = AudioSegment.from_file(audio_path)
 
                 audio = audio.set_frame_rate(16000).set_channels(1)
@@ -144,7 +157,9 @@ class SpeechService:
                 logger.error(f"Failed to preprocess microphone recording '{audio_path}': {e}")
                 return None
         else:
-            logger.info(f"Detected uploaded file: {audio_path}. Skipping preprocessing as per user instruction.")
+            logger.info(
+                f"Detected uploaded file: {audio_path}. Skipping preprocessing as per user instruction."
+            )
             return audio_path
 
     def _submit_tts_task(self, payload: dict) -> dict:
@@ -152,30 +167,30 @@ class SpeechService:
         Submits the TTS task to the async endpoint.
         Returns the initial response which should contain the task_id.
         """
-        return self._call_webgw_api(call_name='call-non-edit-model', call_args=payload)
+        return self._call_webgw_api(call_name="call-non-edit-model", call_args=payload)
 
     def _poll_tts_result(self, task_id: str) -> dict:
         """Polls the TTS task result."""
         payload = {"task_id": task_id}
-        return self._call_webgw_api(call_name='call-non-edit-model', call_args=payload)
+        return self._call_webgw_api(call_name="call-non-edit-model", call_args=payload)
 
     def _submit_edit_task(self, payload: dict) -> dict:
         """
         Submits the Edit task to the async endpoint.
         Returns the initial response which should contain the task_id.
         """
-        return self._call_webgw_api(call_name='call-edit-model', call_args=payload)
+        return self._call_webgw_api(call_name="call-edit-model", call_args=payload)
 
     def _poll_edit_result(self, task_id: str) -> dict:
         """Polls the Edit task result."""
         payload = {"task_id": task_id}
-        return self._call_webgw_api(call_name='call-edit-model', call_args=payload)
+        return self._call_webgw_api(call_name="call-edit-model", call_args=payload)
 
     def tts_start_task(self, text: str, prompt_wav_path: str, prompt_text: str) -> str:
         """提交TTS任务并返回task_id"""
         with open(prompt_wav_path, "rb") as f:
             prompt_audio_bytes = f.read()
-        prompt_audio_b64 = base64.b64encode(prompt_audio_bytes).decode('utf-8')
+        prompt_audio_b64 = base64.b64encode(prompt_audio_bytes).decode("utf-8")
 
         submit_payload = {
             "task_name": "tts",
@@ -194,8 +209,6 @@ class SpeechService:
         result_content_str = initial_response.get("resultMap", {}).get("result")
         if not result_content_str:
             return "错误: 提交响应中缺少 'result' 字段"
-
-
 
         if isinstance(result_content_str, str):
             inner_response = json.loads(result_content_str)
@@ -221,9 +234,7 @@ class SpeechService:
 
         result_content_str = poll_response.get("resultMap", {}).get("result")
         if not result_content_str:
-            return "pending", None # Still pending, no result map yet
-
-
+            return "pending", None  # Still pending, no result map yet
 
         if isinstance(result_content_str, str):
             inner_response = json.loads(result_content_str)
@@ -258,17 +269,23 @@ class SpeechService:
 
         with open(processed_path, "rb") as f:
             audio_bytes = f.read()
-        audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         submit_payload = {
             "task_name": "asr",
             "audio_b64": audio_b64,
             "messages": [
-                {"role": "HUMAN", "content": [
-                    {"type": "text", "text": "Please recognize the language of this speech and transcribe it. Format: oral, punctuated."},
-                    {"type": "audio", "audio": "placeholder"}
-                ]}
-            ]
+                {
+                    "role": "HUMAN",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Please recognize the language of this speech and transcribe it. Format: oral, punctuated.",
+                        },
+                        {"type": "audio", "audio": "placeholder"},
+                    ],
+                }
+            ],
         }
 
         # 复用通用的异步提交逻辑
@@ -281,8 +298,6 @@ class SpeechService:
         result_content_str = initial_response.get("resultMap", {}).get("result")
         if not result_content_str:
             return "错误: 提交响应中缺少 'result' 字段"
-
-
 
         if isinstance(result_content_str, str):
             inner_response = json.loads(result_content_str)
@@ -309,9 +324,7 @@ class SpeechService:
 
         result_content_str = poll_response.get("resultMap", {}).get("result")
         if not result_content_str:
-            return "pending", None # 任务仍在处理中，尚未返回结果
-
-
+            return "pending", None  # 任务仍在处理中，尚未返回结果
 
         if isinstance(result_content_str, str):
             inner_response = json.loads(result_content_str)
@@ -327,11 +340,11 @@ class SpeechService:
 
         # 任务完成，处理最终文本结果
         transcribed_text = inner_response.get("data", {}).get("transcribed_text")
-        if transcribed_text is None: # Use `is None` to allow empty string results
+        if transcribed_text is None:  # Use `is None` to allow empty string results
             return "错误: 任务成功但未返回识别文本。", None
 
         # API返回 "Language\tText" 格式, 我们只取文本部分
-        final_text = transcribed_text.split('\t', 1)[-1]
+        final_text = transcribed_text.split("\t", 1)[-1]
         return "done", final_text
 
     def edit_start_task(self, audio_path: str, instruction_text: str) -> str:
@@ -342,20 +355,22 @@ class SpeechService:
 
         with open(processed_path, "rb") as f:
             audio_bytes = f.read()
-        audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         messages = [
-            {"role": "HUMAN", "content": [
-                {"type": "audio", "audio": "placeholder", "target_sample_rate": 16000},
-                {"type": "text", "text": f"<prompt>Please recognize the language of this speech and transcribe it. And {instruction_text}\\n</prompt>"}
-            ]}
+            {
+                "role": "HUMAN",
+                "content": [
+                    {"type": "audio", "audio": "placeholder", "target_sample_rate": 16000},
+                    {
+                        "type": "text",
+                        "text": f"<prompt>Please recognize the language of this speech and transcribe it. And {instruction_text}\\n</prompt>",
+                    },
+                ],
+            }
         ]
 
-        submit_payload = {
-            "task_name": "edit",
-            "audio_b64": audio_b64,
-            "messages": messages
-        }
+        submit_payload = {"task_name": "edit", "audio_b64": audio_b64, "messages": messages}
 
         # 调用专用的 Edit 任务提交逻辑
         initial_response = self._submit_edit_task(submit_payload)
@@ -367,8 +382,6 @@ class SpeechService:
         result_content_str = initial_response.get("resultMap", {}).get("result")
         if not result_content_str:
             return "错误: 提交响应中缺少 'result' 字段"
-
-
 
         if isinstance(result_content_str, str):
             inner_response = json.loads(result_content_str)
@@ -396,9 +409,6 @@ class SpeechService:
         result_content_str = poll_response.get("resultMap", {}).get("result")
         if not result_content_str:
             return "pending", "任务处理中...", None
-
-
-
 
         if isinstance(result_content_str, str):
             inner_response = json.loads(result_content_str)
@@ -444,19 +454,19 @@ class SpeechService:
                 processed_path = self._preprocess_audio(prompt_audio)
                 if processed_path:
                     with open(processed_path, "rb") as f:
-                        prompt_wav_b64 = base64.b64encode(f.read()).decode('utf-8')
+                        prompt_wav_b64 = base64.b64encode(f.read()).decode("utf-8")
                 else:
                     return "错误: 音频文件处理失败"
             else:
-                 # 假设是 Base64 或无效路径，暂不处理
-                 pass
+                # 假设是 Base64 或无效路径，暂不处理
+                pass
 
         # 构造 API 参数
         call_args = {
             "text": payload.get("text"),
             "caption": payload.get("caption"),
             "seed": payload.get("seed"),
-            "prompt_wav_b64": prompt_wav_b64
+            "prompt_wav_b64": prompt_wav_b64,
         }
 
         # 移除 None 值参数 (某些模式下 prompt_wav_b64 可选)
@@ -465,7 +475,7 @@ class SpeechService:
         response = self._call_webgw_api(
             call_name="submit_task",
             call_args=call_args,
-            api_project="260113-ming-uniaudio-instruct"
+            api_project="260113-ming-uniaudio-instruct",
         )
 
         if not response.get("success"):
@@ -489,7 +499,7 @@ class SpeechService:
         # Maya 返回格式: { "task_id": "...", "status": "pending" }
         task_id = result_data.get("task_id")
         if not task_id:
-             return f"错误: 响应中缺少 task_id - {result_data}"
+            return f"错误: 响应中缺少 task_id - {result_data}"
 
         logger.info(f"Instruct task started with ID: {task_id}")
 
@@ -500,7 +510,7 @@ class SpeechService:
         response = self._call_webgw_api(
             call_name="poll_task",
             call_args={"task_id": task_id},
-            api_project="260113-ming-uniaudio-instruct"
+            api_project="260113-ming-uniaudio-instruct",
         )
 
         if not response.get("success"):
@@ -534,7 +544,7 @@ class SpeechService:
                 logger.error(f"Failed to decode instruct audio: {e}")
                 return f"错误: 音频解码失败 - {e}", None
         else:
-             return f"错误: 未知状态 '{status}'", None
+            return f"错误: 未知状态 '{status}'", None
 
 
 # Gradio界面构建 =======================================================
@@ -546,7 +556,7 @@ class GradioInterface:
         self.uniaudio_demo_tab = UniAudioDemoTab(
             webgw_url=self.service.WEB_GW_API_URL,
             webgw_api_key=self.service.WEB_GW_API_KEY,
-            webgw_app_id=self.service.WEB_GW_APP_ID
+            webgw_app_id=self.service.WEB_GW_APP_ID,
         )
 
         self.custom_css = """
@@ -588,119 +598,211 @@ class GradioInterface:
             neutral_hue=gr.themes.colors.gray,
             font=["PingFang SC", "SF Pro", "Microsoft YaHei", "Segoe UI", "sans-serif"],
         )
-        with gr.Blocks(title="Ming UniAudio 演示", analytics_enabled=False, css=self.custom_css, theme=theme, fill_width=True) as demo:
+        with gr.Blocks(
+            title="Ming UniAudio 演示",
+            analytics_enabled=False,
+            css=self.custom_css,
+            theme=theme,
+            fill_width=True,
+        ) as demo:
             image_path = "figures/ant_bailing2.png"
             try:
-                with open(image_path, "rb") as image_file: encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                with open(image_path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
                 base64_src = f"data:image/png;base64,{encoded_string}"
-            except Exception: base64_src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+            except Exception:
+                base64_src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
 
             with gr.Row(variant="panel", elem_id="header-row"):
-                gr.HTML(f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-UniAudio 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。</p></div></div>""")
+                gr.HTML(
+                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-UniAudio 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。</p></div></div>"""
+                )
 
             with gr.Tabs():
+                # 引入 UniAudio V4 MOE 综合演示标签页
+                self.uniaudio_demo_tab.create_tab()
+
                 with gr.Tab("基础能力 (ASR/Edit/TTS)"):
                     with gr.Row(equal_height=True):
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
-                                gr.Markdown("### 🎤 语音转写（ASR）\n将您上传的音频文件自动转写为文字。", elem_classes="audio-md")
+                                gr.Markdown(
+                                    "### 🎤 语音转写（ASR）\n将您上传的音频文件自动转写为文字。",
+                                    elem_classes="audio-md",
+                                )
                                 asr_task_id_state = gr.State(None)
                                 asr_polling_counter = gr.Number(value=0, visible=False)
-                                input_audio = gr.Audio(sources=["upload", "microphone"], type="filepath", label="原始音频", elem_id="input_audio_player")
-                                btn_input = gr.Button("播放音频", elem_id="btn_input_play", variant='secondary')
-                                btn_input.click(fn=self.play_audio, inputs=[], outputs=[], js="""() => { const playBtn = document.querySelector('#input_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""")
+                                input_audio = gr.Audio(
+                                    sources=["upload", "microphone"],
+                                    type="filepath",
+                                    label="原始音频",
+                                    elem_id="input_audio_player",
+                                )
+                                btn_input = gr.Button(
+                                    "播放音频", elem_id="btn_input_play", variant="secondary"
+                                )
+                                btn_input.click(
+                                    fn=self.play_audio,
+                                    inputs=[],
+                                    outputs=[],
+                                    js="""() => { const playBtn = document.querySelector('#input_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
+                                )
                                 transcription_box = gr.Textbox(label="识别结果", interactive=False)
 
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
-                                gr.Markdown("### ✏️ 智能编辑（Editing）\n通过简单的自然语言指令，对音频和文本进行修改。", elem_classes="audio-md")
+                                gr.Markdown(
+                                    "### ✏️ 智能编辑（Editing）\n通过简单的自然语言指令，对音频和文本进行修改。",
+                                    elem_classes="audio-md",
+                                )
                                 edit_task_id_state = gr.State(None)
                                 edit_polling_counter = gr.Number(value=0, visible=False)
                                 continuous_edit = gr.Checkbox(label="启用连续编辑")
-                                instruction_box = gr.Textbox(label="编辑指令", placeholder="例如: '给音频降噪'")
+                                instruction_box = gr.Textbox(
+                                    label="编辑指令", placeholder="例如: '给音频降噪'"
+                                )
                                 submit_btn = gr.Button("执行编辑", variant="primary")
                                 output_text = gr.Textbox(label="编辑后文本", interactive=False)
-                                output_audio = gr.Audio(label="编辑后音频", autoplay=True, interactive=False, elem_id="output_audio_player")
-                                btn_edit = gr.Button("播放音频", variant='secondary')
-                                btn_edit.click(fn=self.play_audio, inputs=[], outputs=[], js="""() => { const playBtn = document.querySelector('#output_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""")
+                                output_audio = gr.Audio(
+                                    label="编辑后音频",
+                                    autoplay=True,
+                                    interactive=False,
+                                    elem_id="output_audio_player",
+                                )
+                                btn_edit = gr.Button("播放音频", variant="secondary")
+                                btn_edit.click(
+                                    fn=self.play_audio,
+                                    inputs=[],
+                                    outputs=[],
+                                    js="""() => { const playBtn = document.querySelector('#output_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
+                                )
                                 continuous_btn = gr.Button("连续编辑", visible=False)
 
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
-                                gr.Markdown("### 🔊 语音合成（TTS）\n上传参考音频，克隆其音色，将任意文本合成为自然的语音。", elem_classes="audio-md")
+                                gr.Markdown(
+                                    "### 🔊 语音合成（TTS）\n上传参考音频，克隆其音色，将任意文本合成为自然的语音。",
+                                    elem_classes="audio-md",
+                                )
                                 prompt_asr_task_id_state = gr.State(None)
                                 prompt_asr_polling_counter = gr.Number(value=0, visible=False)
                                 task_id_state = gr.State(None)
                                 polling_counter = gr.Number(value=0, visible=False)
-                                prompt_audio = gr.Audio(type="filepath", label="参考音频", elem_id="prompt_audio_player")
-                                btn_prompt = gr.Button("播放音频", variant='secondary')
-                                btn_prompt.click(fn=self.play_audio, inputs=[], outputs=[], js="""() => { const playBtn = document.querySelector('#prompt_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""")
+                                prompt_audio = gr.Audio(
+                                    type="filepath", label="参考音频", elem_id="prompt_audio_player"
+                                )
+                                btn_prompt = gr.Button("播放音频", variant="secondary")
+                                btn_prompt.click(
+                                    fn=self.play_audio,
+                                    inputs=[],
+                                    outputs=[],
+                                    js="""() => { const playBtn = document.querySelector('#prompt_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
+                                )
                                 prompt_text = gr.Textbox(label="参考文本", interactive=False)
-                                tts_box = gr.Textbox(label="合成文本", placeholder="输入需要合成的文本")
+                                tts_box = gr.Textbox(
+                                    label="合成文本", placeholder="输入需要合成的文本"
+                                )
                                 tts_btn = gr.Button("合成语音", variant="primary")
-                                synthesized_audio = gr.Audio(label="合成音频", interactive=False, autoplay=True)
-                                btn_tts = gr.Button("播放音频", variant='secondary')
-                                btn_tts.click(fn=self.play_audio, inputs=[], outputs=[], js="""() => { const playBtn = document.querySelector('#synthesized_audio [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""")
+                                synthesized_audio = gr.Audio(
+                                    label="合成音频", interactive=False, autoplay=True
+                                )
+                                btn_tts = gr.Button("播放音频", variant="secondary")
+                                btn_tts.click(
+                                    fn=self.play_audio,
+                                    inputs=[],
+                                    outputs=[],
+                                    js="""() => { const playBtn = document.querySelector('#synthesized_audio [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
+                                )
 
                     with gr.Row():
                         with gr.Column(scale=2, min_width="600px"):
-                            gr.Examples(examples=self._get_examples(), inputs=[input_audio, instruction_box], outputs=[input_audio, instruction_box, transcription_box, output_text, output_audio], fn=self.process_edit_example, label="语音编辑示例", run_on_click=True, cache_examples="lazy")
+                            gr.Examples(
+                                examples=self._get_examples(),
+                                inputs=[input_audio, instruction_box],
+                                outputs=[
+                                    input_audio,
+                                    instruction_box,
+                                    transcription_box,
+                                    output_text,
+                                    output_audio,
+                                ],
+                                fn=self.process_edit_example,
+                                label="语音编辑示例",
+                                run_on_click=True,
+                                cache_examples="lazy",
+                            )
                         with gr.Column(scale=1, min_width="300px"):
-                            gr.Examples(examples=self._get_tts_examples(), inputs=[prompt_audio, tts_box], outputs=[prompt_audio, tts_box], fn=self.fill_tts_example, label="语音合成示例", run_on_click=False, cache_examples="lazy")
-
-                # 引入 UniAudio V4 MOE 综合演示标签页
-                self.uniaudio_demo_tab.create_tab()
+                            gr.Examples(
+                                examples=self._get_tts_examples(),
+                                inputs=[prompt_audio, tts_box],
+                                outputs=[prompt_audio, tts_box],
+                                fn=self.fill_tts_example,
+                                label="语音合成示例",
+                                run_on_click=False,
+                                cache_examples="lazy",
+                            )
 
             # 事件绑定
-            input_audio.change(self.asr_start_wrapper, inputs=[input_audio], outputs=[asr_task_id_state, transcription_box, asr_polling_counter])
+            input_audio.change(
+                self.asr_start_wrapper,
+                inputs=[input_audio],
+                outputs=[asr_task_id_state, transcription_box, asr_polling_counter],
+            )
             asr_polling_counter.change(
                 self.asr_check_wrapper,
                 inputs=[asr_task_id_state, asr_polling_counter],
                 outputs=[transcription_box, asr_polling_counter],
-                every=2
+                every=2,
             )
 
             submit_btn.click(
                 self.edit_start_wrapper,
                 inputs=[input_audio, instruction_box],
-                outputs=[edit_task_id_state, edit_polling_counter, output_text, output_audio]
+                outputs=[edit_task_id_state, edit_polling_counter, output_text, output_audio],
             )
             edit_polling_counter.change(
                 self.edit_check_wrapper,
                 inputs=[edit_task_id_state, edit_polling_counter],
                 outputs=[output_text, output_audio, edit_polling_counter],
-                every=2
+                every=2,
             )
 
-            continuous_edit.change(self.toggle_continuous, inputs=continuous_edit, outputs=continuous_btn)
-            continuous_btn.click(self.chain_edit, inputs=[output_audio], outputs=[input_audio, instruction_box, output_text, output_audio])
+            continuous_edit.change(
+                self.toggle_continuous, inputs=continuous_edit, outputs=continuous_btn
+            )
+            continuous_btn.click(
+                self.chain_edit,
+                inputs=[output_audio],
+                outputs=[input_audio, instruction_box, output_text, output_audio],
+            )
 
             prompt_audio.change(
                 self.prompt_asr_start_wrapper,
                 inputs=[prompt_audio],
-                outputs=[prompt_asr_task_id_state, prompt_text, prompt_asr_polling_counter]
+                outputs=[prompt_asr_task_id_state, prompt_text, prompt_asr_polling_counter],
             )
             prompt_asr_polling_counter.change(
                 self.prompt_asr_check_wrapper,
                 inputs=[prompt_asr_task_id_state, prompt_asr_polling_counter],
                 outputs=[prompt_text, prompt_asr_polling_counter],
-                every=2
+                every=2,
             )
 
             tts_btn.click(
                 self.tts_start_wrapper,
                 inputs=[tts_box, prompt_audio, prompt_text],
-                outputs=[task_id_state, synthesized_audio, polling_counter]
+                outputs=[task_id_state, synthesized_audio, polling_counter],
             )
             polling_counter.change(
                 self.tts_check_wrapper,
                 inputs=[task_id_state, polling_counter],
                 outputs=[synthesized_audio, polling_counter],
-                every=2
+                every=2,
             )
 
             with gr.Accordion("麦克风权限不工作？点我查看解决方案", open=False):
-                gr.Markdown("""
+                gr.Markdown(
+                    """
                     如果你在使用 Chrome 浏览器时，麦克风权限无法正常工作，且本应用部署在非 HTTPS 站点上，请尝试以下步骤：
 
                     1.  在 Chrome 地址栏中输入 `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
@@ -709,17 +811,24 @@ class GradioInterface:
                     4.  **重要：** 彻底关闭并重新启动 Chrome 浏览器。
 
                     完成这些步骤后，你应该就能成功授予该页面麦克风权限了。
-                """)
+                """
+                )
 
         return demo
 
     def _get_tts_examples(self) -> list:
         """获取示例数据"""
         return [
-            ["audio/日常女声.wav", "我们发现，大约三分之二的猫更偏好左侧睡眠姿势，这样它们的左侧视野、也就是右脑控制的视野，可以更好地观察接近的动物，不会被自己的身体遮挡。"],
-            ["audio/日常男声.wav", "大语言模型通过学习海量的文本数据，掌握了人类语言的复杂规律。它不仅能精准理解你的指令，还能像真人一样流畅地协助你写作或编程。"],
+            [
+                "audio/日常女声.wav",
+                "我们发现，大约三分之二的猫更偏好左侧睡眠姿势，这样它们的左侧视野、也就是右脑控制的视野，可以更好地观察接近的动物，不会被自己的身体遮挡。",
+            ],
+            [
+                "audio/日常男声.wav",
+                "大语言模型通过学习海量的文本数据，掌握了人类语言的复杂规律。它不仅能精准理解你的指令，还能像真人一样流畅地协助你写作或编程。",
+            ],
             ["audio/罗翔.wav", "真正的勇敢，不是无所畏惧，而是明知恐惧仍选择做正确的事。"],
-            ["audio/阿洛娜.wav", "老师，我跟你讲哦，今天天气超~好的！"]
+            ["audio/阿洛娜.wav", "老师，我跟你讲哦，今天天气超~好的！"],
         ]
 
     def _get_examples(self) -> list:
@@ -737,7 +846,9 @@ class GradioInterface:
 
     def edit_start_wrapper(self, audio_path: str, instruction: str):
         """语音编辑异步任务启动包装器"""
-        logger.info(f"Edit start wrapper called with audio: {audio_path}, instruction: {instruction}")
+        logger.info(
+            f"Edit start wrapper called with audio: {audio_path}, instruction: {instruction}"
+        )
         if not audio_path or not instruction:
             # 返回值需要对应 UI outputs: task_id, polling_counter, output_text, output_audio
             return None, 0, "错误: 请提供音频和编辑指令", (blank_rate, blank_audio_data)
@@ -767,13 +878,15 @@ class GradioInterface:
         elif status == "done":
             # 返回最终结果, 停止轮询
             return text_result, audio_result, 0
-        else: # 发生错误
+        else:  # 发生错误
             # 在文本框显示错误信息, 返回空白音频, 停止轮询
             return text_result, audio_result or (blank_rate, blank_audio_data), 0
 
     def tts_start_wrapper(self, text: str, prompt_wav_path: str, prompt_text: str):
         """语音合成任务启动包装器"""
-        logger.info(f"TTS start wrapper called with text length: {len(text)}, prompt_wav_path: {prompt_wav_path}, prompt_text length: {len(prompt_text)}")
+        logger.info(
+            f"TTS start wrapper called with text length: {len(text)}, prompt_wav_path: {prompt_wav_path}, prompt_text length: {len(prompt_text)}"
+        )
         if not all([text, prompt_wav_path, prompt_text]):
             # outputs: [task_id_state, synthesized_audio, polling_counter]
             return None, gr.update(label="错误：缺少合成文本、参考音频或参考文本。", value=None), 0
@@ -800,7 +913,7 @@ class GradioInterface:
             return gr.update(label=status_message), polling_counter + 1
         elif status == "done":
             return gr.update(label="合成成功！", value=result), 0
-        else: # Error case
+        else:  # Error case
             return gr.update(label=status, value=None), 0
 
     def asr_start_wrapper(self, audio_path: str):
@@ -837,7 +950,7 @@ class GradioInterface:
             # 注意：这里我们将最终结果（result）和状态信息（status_message）都更新到同一个文本框中。
             # Gradio 会将 result 设置为文本框的值。
             return result, 0
-        else: # 发生错误
+        else:  # 发生错误
             status_message = f"识别失败: {status}"
             # 停止轮询，并显示错误信息
             return status_message, 0
@@ -870,7 +983,7 @@ class GradioInterface:
             return status_message, polling_counter + 1
         elif status == "done":
             return result, 0
-        else: # 发生错误
+        else:  # 发生错误
             return f"识别失败: {result}", 0
 
     # 界面交互函数 =====================================================
@@ -888,7 +1001,7 @@ class GradioInterface:
             gr.update(value=current_audio),  # 更新input_audio
             gr.update(value=""),  # 清空instruction
             gr.update(value=""),  # 清空output_text
-            gr.update(value=None)  # 清空output_audio
+            gr.update(value=None),  # 清空output_audio
         )
 
     def fill_tts_example(self, audio_path: str, text: str) -> tuple:
@@ -906,7 +1019,9 @@ class GradioInterface:
         updated_transcription_box = gr.update(value=transcription)
 
         # Editing
-        edited_text, (rate, audio_data) = self.service.edit_voice(audio_path, instruction, transcription)
+        edited_text, (rate, audio_data) = self.service.edit_voice(
+            audio_path, instruction, transcription
+        )
         updated_output_text = gr.update(value=edited_text)
         updated_output_audio = gr.update(value=(rate, audio_data))
 
@@ -915,9 +1030,8 @@ class GradioInterface:
             updated_instruction_box,
             updated_transcription_box,
             updated_output_text,
-            updated_output_audio
+            updated_output_audio,
         )
-
 
     @staticmethod
     def chain_edit(current_audio):
@@ -928,7 +1042,7 @@ class GradioInterface:
             gr.update(value=current_audio),  # 更新input_audio
             gr.update(value=""),  # 清空instruction
             gr.update(value=""),  # 清空output_text
-            gr.update(value=None)  # 清空output_audio
+            gr.update(value=None),  # 清空output_audio
         )
 
     def fill_example(self, audio_path: str, instruction: str) -> tuple:
@@ -938,12 +1052,14 @@ class GradioInterface:
             instruction,
             gr.update(value=""),
             gr.update(value=""),
-            gr.update(value=None)
+            gr.update(value=None),
         )
 
     def process_edit_example(self, audio_path: str, instruction: str):
         # Populate input fields
-        yield gr.update(value=audio_path), gr.update(value=instruction), "正在提交识别任务...", gr.update(), gr.update()
+        yield gr.update(value=audio_path), gr.update(
+            value=instruction
+        ), "正在提交识别任务...", gr.update(), gr.update()
 
         # --- ASR Task ---
         asr_task_id = self.service.asr_start_task(audio_path)
@@ -954,7 +1070,7 @@ class GradioInterface:
         yield gr.update(), gr.update(), "识别任务已提交，等待结果...", gr.update(), gr.update()
 
         transcription = ""
-        for i in range(30): # Timeout after 60s
+        for i in range(30):  # Timeout after 60s
             time.sleep(2)
             status, result = self.service.asr_check_task(asr_task_id)
             if status == "pending":
@@ -963,7 +1079,7 @@ class GradioInterface:
                 transcription = result
                 yield gr.update(), gr.update(), transcription, gr.update(), gr.update()
                 break
-            else: # Error
+            else:  # Error
                 yield gr.update(), gr.update(), f"识别失败: {result}", gr.update(), gr.update()
                 return
 
@@ -976,12 +1092,17 @@ class GradioInterface:
 
         edit_task_id = self.service.edit_start_task(audio_path, instruction)
         if edit_task_id.startswith("错误:"):
-            yield gr.update(), gr.update(), transcription, f"编辑任务提交失败: {edit_task_id}", (blank_rate, blank_audio_data)
+            yield gr.update(), gr.update(), transcription, f"编辑任务提交失败: {edit_task_id}", (
+                blank_rate,
+                blank_audio_data,
+            )
             return
 
-        yield gr.update(), gr.update(), transcription, "编辑任务已提交，等待结果...", gr.update(value=None)
+        yield gr.update(), gr.update(), transcription, "编辑任务已提交，等待结果...", gr.update(
+            value=None
+        )
 
-        for i in range(60): # Timeout after 120s
+        for i in range(60):  # Timeout after 120s
             time.sleep(2)
             status, text_result, audio_result = self.service.edit_check_task(edit_task_id)
             if status == "pending":
@@ -989,11 +1110,17 @@ class GradioInterface:
             elif status == "done":
                 yield gr.update(), gr.update(), transcription, text_result, audio_result
                 return
-            else: # Error
-                yield gr.update(), gr.update(), transcription, f"编辑失败: {text_result}", audio_result or (blank_rate, blank_audio_data)
+            else:  # Error
+                yield gr.update(), gr.update(), transcription, f"编辑失败: {text_result}", audio_result or (
+                    blank_rate,
+                    blank_audio_data,
+                )
                 return
 
-        yield gr.update(), gr.update(), transcription, "编辑任务超时", (blank_rate, blank_audio_data)
+        yield gr.update(), gr.update(), transcription, "编辑任务超时", (
+            blank_rate,
+            blank_audio_data,
+        )
 
     def launch(self):
         """启动Gradio应用"""
