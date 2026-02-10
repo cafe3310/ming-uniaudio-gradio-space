@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse
 import gradio as gr
 import requests
 from loguru import logger
+from pypinyin import Style, pinyin
 
 # --- 静态数据 ---
 DROPDOWN_CHOICES = {
@@ -129,6 +130,53 @@ IP_DICT = {
     "朱元璋": "山河月明_朱元璋",
     "左蓝": "潜伏_左蓝",
 }
+
+
+# 辅助函数
+def load_and_merge_ips(original_dict: dict, filepath: str) -> dict:
+    """
+    从txt文件加载新的IP，按拼音排序后，追加到原始字典末尾。
+    支持两种格式: 'Key:Value' 或仅 'Value' (此时Key和Value相同)。
+
+    :param original_dict: 原始的IP_DICT。
+    :param filepath: 包含新IP的txt文件路径。
+    :return: 一个合并后的新字典。
+    """
+    new_ips = {}
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                # 忽略空行或注释行
+                if not line or line.startswith("#"):
+                    continue
+
+                # 判断行中是否包含冒号来决定解析方式
+                if ":" in line:
+                    # 格式为 'Key:Value'
+                    try:
+                        key, value = line.split(":", 1)
+                        new_ips[key.strip()] = value.strip()
+                    except ValueError:
+                        logger.warning(f"无法解析行: {line}，格式应为 'Key:Value'")
+                else:
+                    # 格式仅为 'Value'，此时key和value相同
+                    key = value = line
+                    new_ips[key] = value
+
+    # 仅对从文件读取的新IP按拼音进行排序
+    sorted_new_ips = dict(
+        sorted(new_ips.items(), key=lambda item: pinyin(item[0], style=Style.NORMAL))
+    )
+
+    # 合并字典：将排序后的新IP追加到原始字典后面
+    merged_dict = original_dict.copy()
+    merged_dict.update(sorted_new_ips)
+
+    return merged_dict
+
+
+IP_DICT = load_and_merge_ips(IP_DICT, "uniaudio_ip_list.txt")
 
 
 class UniAudioDemoTab:
