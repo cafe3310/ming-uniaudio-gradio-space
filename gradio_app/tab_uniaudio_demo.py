@@ -70,6 +70,7 @@ DROPDOWN_CHOICES = {
     ),
     "swb_themes": list(set(["生日", "旅行", "运动"])),
     "dialects": list(set(["四川话", "广粤话"])),
+    "emotions": list(set(["中性", "高兴", "惊讶", "愤怒", "悲伤", "厌恶", "恐惧"])),
     "env_sounds": [],  # 原 Demo 未使用
 }
 
@@ -217,7 +218,7 @@ class UniAudioDemoTab:
 
                             with gr.Accordion("指令详情 (根据指令类型填写)", open=True):
                                 i_tts_emotion = gr.Dropdown(
-                                    ["高兴", "悲伤", "愤怒"], label="情感", value="高兴"
+                                    DROPDOWN_CHOICES["emotions"], label="情感", value="高兴"
                                 )
                                 i_tts_dialect = gr.Dropdown(
                                     DROPDOWN_CHOICES["dialects"],
