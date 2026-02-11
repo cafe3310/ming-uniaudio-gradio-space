@@ -665,10 +665,34 @@ class CompositePodcastGenerator:
                     if choice == "IP音色":
                         if not ip_name:
                             raise ValueError(f"请为说话人{spk_num}选择一个IP角色。")
+
+                        if ip_name in self.ip_lines_dict:
+                            ip_tts_text = self.ip_lines_dict[ip_name]
+                        else:
+                            # ip_name 不在预设台词中，从用户台本中提取对应 speaker 的第一句话
+                            ip_tts_text = None
+                            for line in text.split("\n"):
+                                line = line.strip()
+                                if line.startswith(f"speaker_{spk_num}:"):
+                                    extracted = line.split(":", 1)[1].strip()
+                                    if extracted:
+                                        ip_tts_text = extracted
+                                        break
+                            if not ip_tts_text:
+                                raise ValueError(
+                                    f"IP角色 '{ip_name}' 无预设台词，"
+                                    f"且台本中未找到 speaker_{spk_num} 的有效发言，"
+                                    f"无法生成参考音频。"
+                                )
+                            logger.info(
+                                f"[IP音色] '{ip_name}' 无预设台词，"
+                                f"使用台本中 speaker_{spk_num} 的第一句话: '{ip_tts_text[:50]}...'"
+                            )
+
                         payload = {
                             "task_type": "TTS",
                             "instruct_type": "IP",
-                            "text": self.ip_lines_dict[ip_name],
+                            "text": ip_tts_text,
                             "caption": json.dumps(
                                 {"audio_sequence": [{"IP": self.ip_dict[ip_name]}]}
                             ),
