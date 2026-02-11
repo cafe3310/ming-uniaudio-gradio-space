@@ -323,32 +323,32 @@ class UniAudioDemoTab:
                             )
 
                 # --- Tab 3: 多人播客 ---
-                with gr.TabItem("播客 (Podcast)"):
-                    with gr.Row():
-                        with gr.Column(scale=2):
-                            pod_text = gr.Textbox(
-                                lines=5,
-                                label="对话脚本",
-                                info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人。e.g. speaker_1:就比如说各种就是给别人提供，提供帮助的都可以说是服务的\n speaker_2:是的 不管是什么，就是说感觉都是，大家都，都可以说是服务业的一方面\n",
-                            )
-                            pod_prompt1 = gr.Audio(
-                                type="filepath",
-                                label="说话人1参考音频",
-                                sources=["upload", "microphone"],
-                            )
-                            pod_prompt2 = gr.Audio(
-                                type="filepath",
-                                label="说话人2参考音频",
-                                sources=["upload", "microphone"],
-                            )
-                            pod_btn = gr.Button("生成播客", variant="primary")
-                        with gr.Column(scale=1):
-                            pod_status = gr.Markdown(
-                                value="💡 请填写脚本并上传两位说话人的参考音频。"
-                            )
-                            pod_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
-                            )
+                # with gr.TabItem("播客 (Podcast)"):
+                #     with gr.Row():
+                #         with gr.Column(scale=2):
+                #             pod_text = gr.Textbox(
+                #                 lines=5,
+                #                 label="对话脚本",
+                #                 info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人。e.g. speaker_1:就比如说各种就是给别人提供，提供帮助的都可以说是服务的\n speaker_2:是的 不管是什么，就是说感觉都是，大家都，都可以说是服务业的一方面\n",
+                #             )
+                #             pod_prompt1 = gr.Audio(
+                #                 type="filepath",
+                #                 label="说话人1参考音频",
+                #                 sources=["upload", "microphone"],
+                #             )
+                #             pod_prompt2 = gr.Audio(
+                #                 type="filepath",
+                #                 label="说话人2参考音频",
+                #                 sources=["upload", "microphone"],
+                #             )
+                #             pod_btn = gr.Button("生成播客", variant="primary")
+                #         with gr.Column(scale=1):
+                #             pod_status = gr.Markdown(
+                #                 value="💡 请填写脚本并上传两位说话人的参考音频。"
+                #             )
+                #             pod_output = gr.Audio(
+                #                 label="生成结果", type="filepath", interactive=False
+                #             )
 
                 # --- Tab 4: 带背景音乐的语音 ---
                 with gr.TabItem("带背景音乐的语音 (Speech with BGM)"):
@@ -447,7 +447,7 @@ class UniAudioDemoTab:
                             )
 
                 # --- 新增：Tab 7: 综合播客 ---
-                with gr.TabItem("综合播客 (Composite Podcast)"):
+                with gr.TabItem("播客 (Podcast)"):
                     with gr.Row():
                         with gr.Column(scale=2):
                             cpod_text = gr.Textbox(
@@ -494,12 +494,17 @@ class UniAudioDemoTab:
                                     label="信噪比 (SNR)",
                                     info="值越大，背景音乐音量越小。",
                                 )
-                            with gr.Accordion("封面视频设置 (可选)", open=False):
-                                cpod_gen_video = gr.Checkbox(
-                                    label="生成播客封面视频",
-                                    value=False,
-                                    info="根据台本内容自动生成封面图片，并与音频合成为视频。",
-                                )
+                            # with gr.Accordion("封面视频设置 (可选)", open=False):
+                            #     cpod_gen_video = gr.Checkbox(
+                            #         label="生成播客封面视频",
+                            #         value=False,
+                            #         info="根据台本内容自动生成封面图片，并与音频合成为视频。",
+                            #     )
+                            cpod_gen_video = gr.Checkbox(
+                                label="生成播客封面视频",
+                                value=False,
+                                visible=False,
+                            )
                             cpod_btn = gr.Button("生成综合播客", variant="primary")
                         with gr.Column(scale=1):
                             cpod_status = gr.Markdown(value="💡 请输入台本并为两位说话人配置音色。")
@@ -561,11 +566,11 @@ class UniAudioDemoTab:
                 inputs=[zs_tts_text, zs_tts_prompt],
                 outputs=[zs_tts_status, zs_tts_btn, zs_tts_output],
             )
-            pod_btn.click(
-                fn=lambda *args: (yield from self._submit_and_poll("podcast", *args)),
-                inputs=[pod_text, pod_prompt1, pod_prompt2],
-                outputs=[pod_status, pod_btn, pod_output],
-            )
+            # pod_btn.click(
+            #     fn=lambda *args: (yield from self._submit_and_poll("podcast", *args)),
+            #     inputs=[pod_text, pod_prompt1, pod_prompt2],
+            #     outputs=[pod_status, pod_btn, pod_output],
+            # )
             swb_btn.click(
                 fn=lambda *args: (yield from self._submit_and_poll("speech_with_bgm", *args)),
                 inputs=[

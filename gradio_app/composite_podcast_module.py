@@ -310,6 +310,7 @@ class CompositePodcastGenerator:
         bgm_volume: BGM 的音量系数 (0~1)，由 10**(-snr/20) 计算得到。
         输出与语音等长的混音 WAV 文件。
         """
+        logger.info("开始混合bgm和播客音频")
         # 读取语音
         with wave.open(speech_path, "rb") as wf:
             speech_params = wf.getparams()
@@ -575,17 +576,17 @@ class CompositePodcastGenerator:
         logger.info(
             f"[台本格式化] 原始行数: {len(lines)}, "
             f"有效行数: {len(normalized_lines)}, "
-            f"格式化后前100字: {result[:100]!r}"
+            f"格式化后: {result[:100]}"
         )
 
         return result
 
     def _split_chunks(self, text: str, max_chars: int = 280) -> List[str]:
-        lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
+        lines = [line for line in text.split("\n") if line.strip()]
 
         if not lines:
             return []
-        if not lines[0].startswith("speaker_1"):
+        if not lines[0].startswith(" speaker_1"):
             raise ValueError("文本必须以'speaker_1'的发言开始。")
 
         # 步骤 1: 将连续的行按“轮次”分组
@@ -593,7 +594,7 @@ class CompositePodcastGenerator:
         turns = []
         current_turn = []
         for line in lines:
-            if line.startswith("speaker_1"):
+            if line.startswith(" speaker_1"):
                 if current_turn:
                     turns.append("\n".join(current_turn))
                 current_turn = [line]
