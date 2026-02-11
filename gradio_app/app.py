@@ -31,6 +31,7 @@ class SpeechService:
         self.WEB_GW_API_URL = os.environ.get("WEB_GW_API_URL")
         self.WEB_GW_API_KEY = os.environ.get("WEB_GW_API_KEY")
         self.WEB_GW_APP_ID = os.environ.get("WEB_GW_APP_ID")
+        self.IMAGE_GEN_MODEL_KEY = os.environ.get("IMAGE_GEN_MODEL_KEY")
 
         # Other configs
         self.dump_reqs = os.environ.get("DUMP_REQS", "false").lower() == "true"
@@ -557,6 +558,7 @@ class GradioInterface:
             webgw_url=self.service.WEB_GW_API_URL,
             webgw_api_key=self.service.WEB_GW_API_KEY,
             webgw_app_id=self.service.WEB_GW_APP_ID,
+            image_gen_model_key=self.service.IMAGE_GEN_MODEL_KEY,
         )
 
         self.custom_css = """

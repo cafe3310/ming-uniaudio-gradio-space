@@ -5,11 +5,12 @@ import json
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 import gradio as gr
 import requests
+from composite_podcast_module import CompositePodcastGenerator
 from loguru import logger
 from pypinyin import Style, pinyin
 
@@ -188,12 +189,31 @@ class UniAudioDemoTab:
     """
 
     def __init__(
-        self, webgw_url, webgw_api_key, webgw_app_id, api_project="260203-ming-uniaudio-v4-moe-lite"
+        self,
+        webgw_url,
+        webgw_api_key,
+        webgw_app_id,
+        image_gen_model_key,
+        api_project="260203-ming-uniaudio-v4-moe-lite",
     ):
         self.webgw_url = webgw_url
         self.api_key = webgw_api_key
         self.app_id = webgw_app_id
         self.api_project = api_project
+
+        IMAGE_GEN_CONFIG = {
+            "mllm_name": "gemini-2.5-flash-image",
+            "env": "office",
+            "sk": image_gen_model_key,
+        }
+        self.podcast_generator = CompositePodcastGenerator(
+            webgw_url=webgw_url,
+            api_key=webgw_api_key,
+            api_project=api_project,
+            app_id=webgw_app_id,
+            mllm_config=IMAGE_GEN_CONFIG,
+            ip_dict=IP_DICT,
+        )
 
     def create_tab(self):
         with gr.TabItem("UniAudio V4 MOE 综合演示"):
@@ -426,6 +446,70 @@ class UniAudioDemoTab:
                                 label="生成结果", type="filepath", interactive=False
                             )
 
+                # --- 新增：Tab 7: 综合播客 ---
+                with gr.TabItem("综合播客 (Composite Podcast)"):
+                    with gr.Row():
+                        with gr.Column(scale=2):
+                            cpod_text = gr.Textbox(
+                                lines=8,
+                                label="播客台本",
+                                info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人，且必须以 'speaker_1' 开头。",
+                            )
+                            with gr.Row():
+                                with gr.Column():
+                                    gr.Markdown("#### 说话人1 音色设置")
+                                    cpod_spk1_choice = gr.Radio(
+                                        ["上传音频", "IP音色"], label="音色来源", value="上传音频"
+                                    )
+                                    cpod_spk1_ip = gr.Dropdown(
+                                        list(IP_DICT.keys()), label="选择IP角色", visible=False
+                                    )
+                                    cpod_spk1_audio = gr.Audio(
+                                        type="filepath",
+                                        label="上传/录制参考音频 (3-7秒)",
+                                        sources=["upload", "microphone"],
+                                        visible=True,
+                                    )
+                                with gr.Column():
+                                    gr.Markdown("#### 说话人2 音色设置")
+                                    cpod_spk2_choice = gr.Radio(
+                                        ["上传音频", "IP音色"], label="音色来源", value="上传音频"
+                                    )
+                                    cpod_spk2_ip = gr.Dropdown(
+                                        list(IP_DICT.keys()), label="选择IP角色", visible=False
+                                    )
+                                    cpod_spk2_audio = gr.Audio(
+                                        type="filepath",
+                                        label="上传/录制参考音频 (3-7秒)",
+                                        sources=["upload", "microphone"],
+                                        visible=True,
+                                    )
+                            with gr.Accordion("背景音乐设置 (可选)", open=False):
+                                cpod_add_bgm = gr.Checkbox(label="添加随机背景音乐", value=False)
+                                cpod_bgm_snr = gr.Slider(
+                                    0,
+                                    30,
+                                    value=18.0,
+                                    step=0.5,
+                                    label="信噪比 (SNR)",
+                                    info="值越大，背景音乐音量越小。",
+                                )
+                            with gr.Accordion("封面视频设置 (可选)", open=False):
+                                cpod_gen_video = gr.Checkbox(
+                                    label="生成播客封面视频",
+                                    value=False,
+                                    info="根据台本内容自动生成封面图片，并与音频合成为视频。",
+                                )
+                            cpod_btn = gr.Button("生成综合播客", variant="primary")
+                        with gr.Column(scale=1):
+                            cpod_status = gr.Markdown(value="💡 请输入台本并为两位说话人配置音色。")
+                            cpod_output = gr.Audio(
+                                label="播客音频结果", type="filepath", interactive=False
+                            )
+                            cpod_video_output = gr.Video(
+                                label="播客视频结果", visible=False, interactive=False
+                            )
+
             # --- 事件绑定 ---
             def i_tts_submit(
                 instruct_type,
@@ -504,6 +588,91 @@ class UniAudioDemoTab:
                 fn=lambda *args: (yield from self._submit_and_poll("TTA", *args)),
                 inputs=[tta_text],
                 outputs=[tta_status, tta_btn, tta_output],
+            )
+
+            # --- 综合播客的事件绑定 ---
+            def update_composite_podcast_ui(choice):
+                return gr.update(visible=choice == "IP音色"), gr.update(visible=choice != "IP音色")
+
+            cpod_spk1_choice.change(
+                fn=update_composite_podcast_ui,
+                inputs=cpod_spk1_choice,
+                outputs=[cpod_spk1_ip, cpod_spk1_audio],
+            )
+            cpod_spk2_choice.change(
+                fn=update_composite_podcast_ui,
+                inputs=cpod_spk2_choice,
+                outputs=[cpod_spk2_ip, cpod_spk2_audio],
+            )
+
+            def handle_composite_podcast_wrapper(
+                text,
+                spk1_choice,
+                spk1_ip,
+                spk1_audio,
+                spk2_choice,
+                spk2_ip,
+                spk2_audio,
+                add_bgm,
+                bgm_snr,
+                generate_video,
+            ):
+                yield (
+                    gr.update(value="⏳ 任务已开始，后台正在全力处理..."),
+                    gr.update(interactive=False),
+                    None,
+                    gr.update(visible=False),
+                )
+
+                try:
+                    status_msg, audio_path, video_path = self.podcast_generator.generate(
+                        text,
+                        spk1_choice,
+                        spk1_ip,
+                        spk1_audio,
+                        spk2_choice,
+                        spk2_ip,
+                        spk2_audio,
+                        add_bgm,
+                        bgm_snr,
+                        generate_video,
+                    )
+
+                    video_update = (
+                        gr.update(visible=True, value=video_path)
+                        if video_path
+                        else gr.update(visible=False)
+                    )
+                    yield (
+                        gr.update(value=status_msg),
+                        gr.update(interactive=True),
+                        audio_path,
+                        video_update,
+                    )
+                except Exception as e:
+                    logger.error("综合播客后台任务执行时发生异常", exc_info=True)
+                    yield (
+                        gr.update(value=f"❌ 错误: {e}"),
+                        gr.update(interactive=True),
+                        None,
+                        gr.update(visible=False),
+                    )
+
+            cpod_btn.click(
+                fn=handle_composite_podcast_wrapper,
+                inputs=[
+                    cpod_text,
+                    cpod_spk1_choice,
+                    cpod_spk1_ip,
+                    cpod_spk1_audio,
+                    cpod_spk2_choice,
+                    cpod_spk2_ip,
+                    cpod_spk2_audio,
+                    cpod_add_bgm,
+                    cpod_bgm_snr,
+                    cpod_gen_video,
+                ],
+                outputs=[cpod_status, cpod_btn, cpod_output, cpod_video_output],
             )
 
     # --- 辅助方法 ---
