@@ -31,7 +31,6 @@ class SpeechService:
         self.WEB_GW_API_URL = os.environ.get("WEB_GW_API_URL")
         self.WEB_GW_API_KEY = os.environ.get("WEB_GW_API_KEY")
         self.WEB_GW_APP_ID = os.environ.get("WEB_GW_APP_ID")
-        self.IMAGE_GEN_MODEL_KEY = os.environ.get("IMAGE_GEN_MODEL_KEY")
 
         # Other configs
         self.dump_reqs = os.environ.get("DUMP_REQS", "false").lower() == "true"
@@ -558,7 +557,6 @@ class GradioInterface:
             webgw_url=self.service.WEB_GW_API_URL,
             webgw_api_key=self.service.WEB_GW_API_KEY,
             webgw_app_id=self.service.WEB_GW_APP_ID,
-            image_gen_model_key=self.service.IMAGE_GEN_MODEL_KEY,
         )
 
         self.custom_css = """
@@ -617,14 +615,14 @@ class GradioInterface:
 
             with gr.Row(variant="panel", elem_id="header-row"):
                 gr.HTML(
-                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-UniAudio 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。</p></div></div>"""
+                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-omni-tts 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和可控语音合成能力。</p></div></div>"""
                 )
 
             with gr.Tabs():
                 # 引入 UniAudio V4 MOE 综合演示标签页
                 self.uniaudio_demo_tab.create_tab()
 
-                with gr.Tab("基础能力 (ASR/Edit/TTS)"):
+                with gr.Tab("Ming-UniAudio"):
                     with gr.Row(equal_height=True):
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):

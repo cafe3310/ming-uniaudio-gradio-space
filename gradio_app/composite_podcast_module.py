@@ -5,20 +5,19 @@ import json
 import os
 import random
 import re
-import shutil
-import subprocess
 import tempfile
 import time
 import uuid
 import wave
-from io import BytesIO
 from typing import Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
-import numpy as np
 import requests
 from loguru import logger
-from PIL import Image
+
+# ============================================================
+# 1. 预设选项和数据
+# ============================================================
 
 DROPDOWN_CHOICES = {
     "bgm_genres": list(
@@ -140,98 +139,10 @@ IP_LINES_DICT = {
 
 
 # ============================================================
-# 1. 生图功能的专属辅助类 (移植自源文件)
-# ============================================================
-class MLLMsResponseBase:
-    def __init__(self, mllm_name, call_address, sk=None):
-        self.mllm_name = mllm_name
-        self.sk = sk if sk is not None else os.environ.get("API_SK", None)
-        if self.sk is None:
-            raise ValueError("API_SK is not set")
-        self.call_adress = call_address
-        container_info = self.get_container_info()
-        self.headers = {
-            "X-TraceInfo": container_info,
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.sk}",
-        }
-
-    def get_container_info(self):
-        workflow_id = os.environ.get("WORKFLOW_ID", "N/A")
-        username = os.environ.get("USER_NAME", "N/A")
-        usernumber = os.environ.get("USERNUMBER", "N/A")
-        return f"{username}_{usernumber}_{workflow_id}"
-
-    def get_response(self, params, retry=5, sleep_time=0.5):
-        if "model" not in params:
-            params["model"] = self.mllm_name
-        for _ in range(retry):
-            try:
-                response = requests.post(self.call_adress, headers=self.headers, json=params)
-                if response.status_code == 200:
-                    return response
-                logger.error(f"{self.mllm_name} response error code: {response.status_code}")
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-            except Exception as e:
-                logger.error(f"error: {str(e)}")
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-        return ""
-
-
-class ImageText2ImageTextResponse(MLLMsResponseBase):
-    def __init__(self, mllm_name, env, sk=None):
-        self.mllm_name = mllm_name
-        if self.mllm_name not in ["gemini-2.5-flash-image-preview", "gemini-2.5-flash-image"]:
-            raise ValueError(f"mllm name {self.mllm_name} not supported")
-        if env == "office":
-            self.call_address = "https://matrixcube.alipay.com/v1/genericCall"
-        elif env == "prod":
-            self.call_address = "matrixcube-pool.global.alipay.com"
-        else:
-            raise ValueError(f"env {env} not in [office, prod]")
-        super().__init__(self.mllm_name, self.call_address, sk)
-
-    def get_text2image_response(self, prompt, retry=5, sleep_time=0.5):
-        data = {
-            "model": self.mllm_name,
-            "method": f"/{self.mllm_name}:generateContent",
-            "contents": {"role": "USER", "parts": [{"text": prompt}]},
-            "generation_config": {"response_modalities": ["TEXT", "IMAGE"]},
-        }
-        response = self.get_response(data, retry, sleep_time)
-        if not response:
-            logger.warning(f"[生图失败] API请求失败。Prompt: {prompt[:50]}...")
-            return ""
-        try:
-            resp_json = response.json()
-            if "candidates" not in resp_json or not resp_json["candidates"]:
-                logger.warning(
-                    f"[生图失败] 响应中无candidates。响应: {json.dumps(resp_json, ensure_ascii=False)[:500]}"
-                )
-                return ""
-            content = resp_json["candidates"][0]["content"]
-            text, image = "", None
-            for part in content["parts"]:
-                if "text" in part:
-                    text = part["text"].strip()
-                if "inlineData" in part:
-                    image = Image.open(BytesIO(base64.b64decode(part["inlineData"]["data"])))
-            if image is None:
-                logger.warning(f"[生图失败] 未生成图片。文本: {text[:200] if text else '(空)'}")
-                return ""
-            return (text, image)
-        except Exception as e:
-            logger.error(f"[生图失败] 未知异常: {e}。响应: {response.text[:500]}")
-            return ""
-
-
-# ============================================================
 # 2. 综合播客生成器主类
 # ============================================================
 class CompositePodcastGenerator:
-    def __init__(self, webgw_url, api_key, api_project, app_id, mllm_config, ip_dict):
+    def __init__(self, webgw_url, api_key, api_project, app_id, ip_dict):
         # 统一使用主框架的WebGW配置
         self.webgw_url = webgw_url
         self.api_key = api_key
@@ -239,7 +150,6 @@ class CompositePodcastGenerator:
         self.app_id = app_id
 
         # 独立的功能配置
-        self.mllm_config = mllm_config
         self.ip_dict = ip_dict
         self.ip_lines_dict = self._get_ip_lines()
         self.bgm_params_list = self._get_bgm_params()
@@ -249,18 +159,6 @@ class CompositePodcastGenerator:
             return None
         with open(filepath, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
-
-    def _b64_to_file(
-        self, b64_string: Optional[str], output_dir: str = "temp_audio"
-    ) -> Optional[str]:
-        if not b64_string:
-            return None
-        os.makedirs(output_dir, exist_ok=True)
-        audio_bytes = base64.b64decode(b64_string)
-        filepath = os.path.join(output_dir, f"{uuid.uuid4()}.wav")
-        with open(filepath, "wb") as f:
-            f.write(audio_bytes)
-        return filepath
 
     def _get_ip_lines(self):
         return IP_LINES_DICT
@@ -274,96 +172,6 @@ class CompositePodcastGenerator:
                 "theme": random.choice(DROPDOWN_CHOICES["bgm_themes"]),
             }
         ]
-
-    def _concat_wav_files(self, wav_files: List[str], output_path: str) -> str:
-        """使用标准库 wave 模块拼接多个 WAV 文件"""
-        if not wav_files:
-            raise ValueError("wav_files 列表为空")
-
-        with wave.open(wav_files[0], "rb") as first:
-            params = first.getparams()
-
-        with wave.open(output_path, "wb") as output:
-            output.setparams(params)
-            for filepath in wav_files:
-                with wave.open(filepath, "rb") as wf:
-                    # 校验格式一致性
-                    if (
-                        wf.getnchannels() != params.nchannels
-                        or wf.getframerate() != params.framerate
-                        or wf.getsampwidth() != params.sampwidth
-                    ):
-                        logger.warning(
-                            f"[WAV拼接] 文件 {filepath} 的音频参数与第一个文件不一致，"
-                            f"尝试继续拼接但可能产生异常音频。"
-                        )
-                    output.writeframes(wf.readframes(wf.getnframes()))
-
-        logger.info(f"[WAV拼接] 成功拼接 {len(wav_files)} 个文件到: {output_path}")
-        return output_path
-
-    def _mix_audio_with_bgm(
-        self, speech_path: str, bgm_path: str, output_path: str, bgm_volume: float
-    ) -> str:
-        """
-        使用 numpy 将语音和背景音乐混合。
-        bgm_volume: BGM 的音量系数 (0~1)，由 10**(-snr/20) 计算得到。
-        输出与语音等长的混音 WAV 文件。
-        """
-        logger.info("开始混合bgm和播客音频")
-        # 读取语音
-        with wave.open(speech_path, "rb") as wf:
-            speech_params = wf.getparams()
-            speech_frames = wf.readframes(wf.getnframes())
-
-        # 读取 BGM
-        with wave.open(bgm_path, "rb") as wf:
-            bgm_params = wf.getparams()
-            bgm_frames = wf.readframes(wf.getnframes())
-
-        # 转换为 numpy 数组
-        dtype = np.int16 if speech_params.sampwidth == 2 else np.int32
-        speech_data = np.frombuffer(speech_frames, dtype=dtype).astype(np.float64)
-        bgm_data = np.frombuffer(bgm_frames, dtype=dtype).astype(np.float64)
-
-        # 处理声道数不同的情况：统一为与语音相同的声道数
-        speech_channels = speech_params.nchannels
-        bgm_channels = bgm_params.nchannels
-        if bgm_channels != speech_channels:
-            if bgm_channels == 2 and speech_channels == 1:
-                # 立体声转单声道：取平均
-                bgm_data = bgm_data.reshape(-1, 2).mean(axis=1)
-            elif bgm_channels == 1 and speech_channels == 2:
-                # 单声道转立体声：复制
-                bgm_data = np.repeat(bgm_data, 2)
-
-        # 截断或填充 BGM 使其与语音等长
-        speech_len = len(speech_data)
-        if len(bgm_data) >= speech_len:
-            bgm_data = bgm_data[:speech_len]
-        else:
-            # BGM 比语音短，循环填充
-            repeats = (speech_len // len(bgm_data)) + 1
-            bgm_data = np.tile(bgm_data, repeats)[:speech_len]
-
-        # 混合
-        mixed = speech_data + bgm_data * bgm_volume
-
-        # 裁剪防止溢出
-        if dtype == np.int16:
-            mixed = np.clip(mixed, -32768, 32767)
-        else:
-            mixed = np.clip(mixed, -2147483648, 2147483647)
-
-        mixed = mixed.astype(dtype)
-
-        # 写出
-        with wave.open(output_path, "wb") as wf:
-            wf.setparams(speech_params)
-            wf.writeframes(mixed.tobytes())
-
-        logger.info(f"[混音] 成功混合语音和BGM，保存至: {output_path}")
-        return output_path
 
     def _sync_call_service(self, payload: Dict, task_name: str, output_dir: str) -> str:
         """
@@ -394,6 +202,15 @@ class CompositePodcastGenerator:
             inner_result = json.loads(result_str)
         else:
             inner_result = result_str
+
+        if "task_id" not in inner_result.keys():
+            raw_request = inner_result.get("rawResult", {})
+            if isinstance(raw_request, str):
+                try:
+                    raw_request = json.loads(raw_request)
+                    inner_result = raw_request.get("data", {})
+                except json.JSONDecodeError:
+                    raise ValueError("无法解析 'rawResult' 字段为 JSON。")
         task_id = inner_result.get("task_id")
         if not task_id:
             raise ValueError(f"[{task_name}] 未能从响应中获取 task_id: {inner_result}")
@@ -420,6 +237,16 @@ class CompositePodcastGenerator:
                             poll_data = json.loads(poll_data_str)
                         else:
                             poll_data = poll_data_str
+
+                        if "status" not in poll_data.keys():
+                            raw_request = poll_data.get("rawResult", {})
+                            if isinstance(raw_request, str):
+                                try:
+                                    raw_request = json.loads(raw_request)
+                                    poll_data = raw_request.get("data", {})
+                                except json.JSONDecodeError:
+                                    logger.warning("无法解析 'rawResult' 字段为 JSON。")
+                                    continue
                         status = poll_data.get("status")
                         if status == "completed" or status == "success":
                             audio_url = poll_data.get("output_audio_url")
@@ -498,49 +325,218 @@ class CompositePodcastGenerator:
                 logger.warning(f"轮询请求时发生异常，将继续重试: {e}")
         raise TimeoutError(f"任务 {task_id} 轮询超时({timeout}秒)。")
 
-    # --- 其他辅助函数保持不变 ---
-    def _generate_cover_image(self, script_text: str, output_dir: str) -> str:
-        prompt = (
-            f"根据下面的播客对话台本的主题和内容，生成一张合适的图片作为播客的封面。"
-            f"要求：风格简洁大方，色彩和谐，适合作为音频播客的封面配图。不要在图片中包含任何文字。"
-            f"\n\n台本内容：\n{script_text}"
-        )
-        mllm_model = ImageText2ImageTextResponse(**self.mllm_config)
-        response = mllm_model.get_text2image_response(prompt, retry=3)
-        if not response:
-            raise RuntimeError("生图模型调用失败。")
-        _, image = response
-        os.makedirs(output_dir, exist_ok=True)
-        image_path = os.path.join(output_dir, f"cover_{uuid.uuid4()}.png")
-        image.save(image_path)
-        return image_path
+    def _submit_and_wait_for_task_id(self, payload: Dict, task_name: str) -> str:
+        """
+        提交任务并轮询直到完成，只返回 task_id，不下载文件。
+        """
+        submit_body = {
+            "api_key": self.api_key,
+            "api_project": self.api_project,
+            "call_name": "submit_task",
+            "call_token": str(uuid.uuid4()),
+            "call_args": payload,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "x-webgw-appid": self.app_id,
+            "x-webgw-version": "2.0",
+        }
 
-    def _combine_video(self, image_path: str, audio_path: str, output_dir: str) -> str:
-        video_path = os.path.join(output_dir, f"podcast_video_{uuid.uuid4()}.mp4")
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-loop",
-            "1",
-            "-i",
-            image_path,
-            "-i",
-            audio_path,
-            "-c:v",
-            "libopenh264",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-pix_fmt",
-            "yuv420p",
-            "-shortest",
-            video_path,
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"视频合成失败: {result.stderr}")
-        return video_path
+        r = requests.post(self.webgw_url, json=submit_body, headers=headers, timeout=30)
+        r.raise_for_status()
+
+        res = r.json()
+        if not res.get("success"):
+            raise ConnectionError(f"WebGW 任务提交失败: {res.get('errorMessage', '未知错误')}")
+
+        result_str = res.get("resultObj", {}).get("result", "{}")
+        if isinstance(result_str, str):
+            inner_result = json.loads(result_str)
+        else:
+            inner_result = result_str
+        if "task_id" not in inner_result.keys():
+            raw_request = inner_result.get("rawResult", {})
+            if isinstance(raw_request, str):
+                try:
+                    raw_request = json.loads(raw_request)
+                    inner_result = raw_request.get("data", {})
+                except json.JSONDecodeError:
+                    raise ValueError("无法解析 'rawResult' 字段为 JSON。")
+        task_id = inner_result.get("task_id")
+        if not task_id:
+            raise ValueError(f"[{task_name}] 未能从响应中获取 task_id: {inner_result}")
+        logger.info(f"[{task_name}] 任务提交成功, Task ID: {task_id}")
+
+        # 轮询等待任务完成（只确认状态，不下载）
+        start_time, timeout = time.time(), 600
+        while time.time() - start_time < timeout:
+            time.sleep(5)
+            poll_body = {
+                "api_key": self.api_key,
+                "api_project": self.api_project,
+                "call_name": "poll_task",
+                "call_token": str(uuid.uuid4()),
+                "call_args": {"task_id": task_id},
+            }
+            try:
+                r_poll = requests.post(self.webgw_url, json=poll_body, headers=headers, timeout=30)
+                if r_poll.status_code == 200:
+                    poll_res = r_poll.json()
+                    if poll_res.get("success"):
+                        poll_data_str = poll_res.get("resultObj", {}).get("result", "{}")
+                        if isinstance(poll_data_str, str):
+                            poll_data = json.loads(poll_data_str)
+                        else:
+                            poll_data = poll_data_str
+                        if "status" not in poll_data.keys():
+                            raw_request = poll_data.get("rawResult", {})
+                            if isinstance(raw_request, str):
+                                try:
+                                    raw_request = json.loads(raw_request)
+                                    poll_data = raw_request.get("data", {})
+                                except json.JSONDecodeError:
+                                    logger.warning("无法解析 'rawResult' 字段为 JSON。")
+                                    continue
+                        status = poll_data.get("status")
+                        if status in ("completed", "success"):
+                            logger.info(f"[{task_name}] 任务已完成, Task ID: {task_id}")
+                            return task_id
+                        elif status == "failed":
+                            raise RuntimeError(
+                                f"任务执行失败: {poll_data.get('error_message', '未知错误')}"
+                            )
+            except RuntimeError:
+                raise
+            except Exception as e:
+                logger.warning(f"轮询请求时发生异常，将继续重试: {e}")
+        raise TimeoutError(f"任务 {task_id} 轮询超时({timeout}秒)。")
+
+    def _download_final_result(
+        self, task_id: str, task_name: str, output_dir: str
+    ) -> Dict[str, Optional[str]]:
+        """
+        轮询 composite_audio_video 任务的结果，下载最终的音频或视频文件。
+        返回: {"audio_path": str|None, "video_path": str|None, "message": str}
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "x-webgw-appid": self.app_id,
+            "x-webgw-version": "2.0",
+        }
+
+        start_time, timeout = time.time(), 600
+        while time.time() - start_time < timeout:
+            time.sleep(5)
+            poll_body = {
+                "api_key": self.api_key,
+                "api_project": self.api_project,
+                "call_name": "poll_task",
+                "call_token": str(uuid.uuid4()),
+                "call_args": {"task_id": task_id},
+            }
+            try:
+                r_poll = requests.post(self.webgw_url, json=poll_body, headers=headers, timeout=30)
+                if r_poll.status_code != 200:
+                    continue
+                poll_res = r_poll.json()
+                if not poll_res.get("success"):
+                    continue
+
+                poll_data_str = poll_res.get("resultObj", {}).get("result", "{}")
+                if isinstance(poll_data_str, str):
+                    poll_data = json.loads(poll_data_str)
+                else:
+                    poll_data = poll_data_str
+
+                if "status" not in poll_data.keys():
+                    raw_request = poll_data.get("rawResult", {})
+                    if isinstance(raw_request, str):
+                        try:
+                            raw_request = json.loads(raw_request)
+                            poll_data = raw_request.get("data", {})
+                        except json.JSONDecodeError:
+                            logger.warning("无法解析 'rawResult' 字段为 JSON。")
+                            continue
+                status = poll_data.get("status")
+                if status not in ("completed", "success"):
+                    if status == "failed":
+                        raise RuntimeError(
+                            f"复合任务执行失败: {poll_data.get('error_message', '未知错误')}"
+                        )
+                    continue
+
+                # 任务完成，下载产物
+                result = {
+                    "audio_path": None,
+                    "video_path": None,
+                    "message": poll_data.get("message", ""),
+                }
+
+                # 优先检查视频
+                video_url = poll_data.get("output_video_url")
+                audio_url = poll_data.get("output_audio_url")
+
+                download_url = video_url or audio_url
+                if not download_url:
+                    raise ValueError("复合任务完成但未返回任何输出URL")
+
+                # 通过代理下载
+                parsed_url = urlparse(download_url)
+                query_params = parse_qs(parsed_url.query)
+                proxy_args = {
+                    "filename": os.path.basename(parsed_url.path),
+                    "oss_access_key_id": query_params.get("OSSAccessKeyId", [None])[0],
+                    "expires": query_params.get("Expires", [None])[0],
+                    "signature": query_params.get("Signature", [None])[0],
+                }
+                proxy_payload = {
+                    "api_key": self.api_key,
+                    "api_project": self.api_project,
+                    "call_name": "get_audio",
+                    "call_token": str(uuid.uuid4()),
+                    "call_args": proxy_args,
+                }
+                resp = requests.post(
+                    self.webgw_url, json=proxy_payload, headers=headers, timeout=120
+                )
+                resp.raise_for_status()
+                res_json = resp.json()
+                if not res_json.get("success"):
+                    raise RuntimeError(f"代理下载失败: {res_json.get('errorMessage', '未知')}")
+
+                inner = res_json.get("resultObj", {}).get("result", {})
+                if isinstance(inner, str):
+                    inner = json.loads(inner)
+                if "gzippedRaw" not in inner:
+                    raise ValueError("代理响应中缺少 'gzippedRaw' 字段")
+
+                compressed_data = base64.b64decode(inner["gzippedRaw"])
+                with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as f_gz:
+                    content = f_gz.read()
+
+                if video_url:
+                    file_ext = ".mp4"
+                    out_path = os.path.join(output_dir, f"{task_name}-{uuid.uuid4()}{file_ext}")
+                    with open(out_path, "wb") as f_out:
+                        f_out.write(content)
+                    result["video_path"] = out_path
+                    logger.info(f"[{task_name}] 视频下载成功: {out_path}")
+                else:
+                    file_ext = ".wav"
+                    out_path = os.path.join(output_dir, f"{task_name}-{uuid.uuid4()}{file_ext}")
+                    with open(out_path, "wb") as f_out:
+                        f_out.write(content)
+                    result["audio_path"] = out_path
+                    logger.info(f"[{task_name}] 音频下载成功: {out_path}")
+
+                return result
+
+            except (RuntimeError, ValueError, TimeoutError):
+                raise
+            except Exception as e:
+                logger.warning(f"轮询请求时发生异常，将继续重试: {e}")
+
+        raise TimeoutError(f"复合任务 {task_id} 轮询超时({timeout}秒)。")
 
     def _normalize_script(self, text: str) -> str:
         if not text or not text.strip():
@@ -644,23 +640,27 @@ class CompositePodcastGenerator:
         generate_video,
     ):
         """
-        核心生成逻辑，这是一个阻塞函数，由Gradio的后台线程调用。
+        核心生成逻辑。
+        新流程：各子任务只获取 task_id，最终由服务端 composite_audio_video 接口完成拼接/混音/视频合成。
         """
         logger.info("=" * 20 + " 开始执行综合播客生成任务 " + "=" * 20)
         try:
             if not text or not text.strip().startswith("speaker_1"):
                 raise ValueError("播客台本不能为空或格式错误。")
+
+            raw_text = text  # 保留原始文本，供生图使用
             text = self._normalize_script(text)
             persistent_dir = "temp_audio"
             os.makedirs(persistent_dir, exist_ok=True)
 
+            # 步骤1: 准备说话人音色（IP音色需要先生成再下载，因为需要作为后续任务的输入）
+            prompt_b64s = [None, None]
+            choices = [
+                (spk1_choice, spk1_ip, spk1_audio, 1),
+                (spk2_choice, spk2_ip, spk2_audio, 2),
+            ]
+
             with tempfile.TemporaryDirectory() as temp_dir:
-                # 步骤1 & 2: 准备说话人音色
-                prompt_b64s = [None, None]
-                choices = [
-                    (spk1_choice, spk1_ip, spk1_audio, 1),
-                    (spk2_choice, spk2_ip, spk2_audio, 2),
-                ]
                 for choice, ip_name, audio_file, spk_num in choices:
                     if choice == "IP音色":
                         if not ip_name:
@@ -673,6 +673,7 @@ class CompositePodcastGenerator:
                                 {"audio_sequence": [{"IP": self.ip_dict[ip_name]}]}
                             ),
                         }
+                        # IP音色需要下载，因为其base64要作为后续podcast任务的输入
                         ip_audio_path = self._sync_call_service(
                             payload, f"ip-gen-spk{spk_num}", temp_dir
                         )
@@ -682,65 +683,66 @@ class CompositePodcastGenerator:
                             raise ValueError(f"请为说话人{spk_num}提供参考音频。")
                         prompt_b64s[spk_num - 1] = self._file_to_b64(audio_file)
 
-                # 步骤3 & 4: 分片生成并拼接音频
-                chunks = self._split_chunks(text)
-                chunk_files = [
-                    self._sync_call_service(
-                        {"task_type": "podcast", "text": chunk, "prompt_wavs_b64": prompt_b64s},
-                        f"podcast-chunk-{i}",
-                        temp_dir,
-                    )
-                    for i, chunk in enumerate(chunks)
-                ]
-                concat_path = os.path.join(temp_dir, "concatenated.wav")
-                if len(chunk_files) > 1:
-                    self._concat_wav_files(chunk_files, concat_path)
-                else:
-                    shutil.copy2(chunk_files[0], concat_path)
-                final_audio_path = concat_path
+            # 步骤2: 分片生成播客音频，只收集 task_id
+            chunks = self._split_chunks(text)
+            speech_task_ids = []
+            for i, chunk in enumerate(chunks):
+                task_id = self._submit_and_wait_for_task_id(
+                    {"task_type": "podcast", "text": chunk, "prompt_wavs_b64": prompt_b64s},
+                    f"podcast-chunk-{i}",
+                )
+                speech_task_ids.append(task_id)
+            logger.info(f"所有播客分片任务已完成，共 {len(speech_task_ids)} 个 task_id")
 
-                # 步骤5: 可选BGM
-                if add_bgm:
-                    duration = self._get_duration(concat_path)
-                    bgm_params = random.choice(self.bgm_params_list)
-                    bgm_prompt = f"Genre: {bgm_params['genre']}. Mood: {bgm_params['mood']}. Instrument: {bgm_params['instrument']}. Theme: {bgm_params['theme']}. Duration: {int(duration) + 2}s."
-                    bgm_path = self._sync_call_service(
-                        {"task_type": "bgm", "prompt_text": bgm_prompt}, "bgm-gen", temp_dir
-                    )
-                    mixed_path = os.path.join(temp_dir, "mixed.wav")
-                    volume = 10 ** (-bgm_snr / 20)
-                    self._mix_audio_with_bgm(concat_path, bgm_path, mixed_path, volume)
-                    final_audio_path = mixed_path
+            # 步骤3: 可选BGM，只获取 task_id
+            bgm_task_id = None
+            if add_bgm:
+                bgm_params = random.choice(self.bgm_params_list)
+                bgm_prompt = (
+                    f"Genre: {bgm_params['genre']}. "
+                    f"Mood: {bgm_params['mood']}. "
+                    f"Instrument: {bgm_params['instrument']}. "
+                    f"Theme: {bgm_params['theme']}. "
+                    f"Duration: 60s."
+                )
+                bgm_task_id = self._submit_and_wait_for_task_id(
+                    {"task_type": "bgm", "prompt_text": bgm_prompt},
+                    "bgm-gen",
+                )
+                logger.info(f"BGM 任务已完成，task_id: {bgm_task_id}")
 
-                # 步骤6 & 7: 复制结果并可选生成视频
-                final_persistent_path = None
-                video_path = None
-                if generate_video:
-                    try:
-                        cover_path = self._generate_cover_image(text, temp_dir)
-                        video_path = self._combine_video(
-                            cover_path,
-                            final_audio_path,
-                            temp_dir,
-                        )
+            # 步骤4: 提交 composite_audio_video 任务，由服务端完成拼接/混音/视频
+            composite_payload = {
+                "task_type": "composite_audio_video",
+                "speech_task_id_list": speech_task_ids,
+            }
+            # 传递原始文本供服务端生图（如果需要视频）
+            if generate_video:
+                composite_payload["raw_text"] = raw_text
+            if bgm_task_id:
+                composite_payload["bgm_task_id"] = bgm_task_id
+                composite_payload["mix_snr"] = float(bgm_snr)
 
-                    except Exception as e:
-                        logger.warning(f"视频生成失败，将仅返回音频: {e}")
+            composite_task_id = self._submit_and_wait_for_task_id(
+                composite_payload, "composite-final"
+            )
 
-                final_persistent_video = None
-                if video_path:
-                    final_persistent_video = os.path.join(
-                        persistent_dir, f"podcast_video_{uuid.uuid4()}.mp4"
-                    )
-                    shutil.copy2(video_path, final_persistent_video)
-                else:
-                    final_persistent_path = os.path.join(
-                        persistent_dir, f"podcast_{uuid.uuid4()}.wav"
-                    )
-                    shutil.copy2(final_audio_path, final_persistent_path)
+            # 步骤5: 下载最终产物（只有一次写入 persistent_dir）
+            download_result = self._download_final_result(
+                composite_task_id, "composite-final", persistent_dir
+            )
 
-                logger.info("=" * 20 + " 综合播客生成任务成功 " + "=" * 20)
-                return "✅ 成功！", final_persistent_path, final_persistent_video
+            final_audio_path = download_result.get("audio_path")
+            final_video_path = download_result.get("video_path")
+            message = download_result.get("message", "")
+
+            logger.info(
+                f"复合任务完成。音频: {final_audio_path}, "
+                f"视频: {final_video_path}, 消息: {message}"
+            )
+            logger.info("=" * 20 + " 综合播客生成任务成功 " + "=" * 20)
+            return "✅ 成功！", final_audio_path, final_video_path
+
         except Exception as e:
             logger.error("综合播客任务失败！", exc_info=True)
             raise e

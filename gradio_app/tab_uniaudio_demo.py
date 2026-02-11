@@ -193,7 +193,6 @@ class UniAudioDemoTab:
         webgw_url,
         webgw_api_key,
         webgw_app_id,
-        image_gen_model_key,
         api_project="260203-ming-uniaudio-v4-moe-lite",
     ):
         self.webgw_url = webgw_url
@@ -201,27 +200,38 @@ class UniAudioDemoTab:
         self.app_id = webgw_app_id
         self.api_project = api_project
 
-        IMAGE_GEN_CONFIG = {
-            "mllm_name": "gemini-2.5-flash-image",
-            "env": "office",
-            "sk": image_gen_model_key,
-        }
         self.podcast_generator = CompositePodcastGenerator(
             webgw_url=webgw_url,
             api_key=webgw_api_key,
             api_project=api_project,
             app_id=webgw_app_id,
-            mllm_config=IMAGE_GEN_CONFIG,
             ip_dict=IP_DICT,
         )
 
     def create_tab(self):
-        with gr.TabItem("UniAudio V4 MOE 综合演示"):
-            gr.Markdown("## UniAudio V4 MOE 综合能力演示")
+        with gr.TabItem("Ming-omni-tts"):
 
             with gr.Tabs():
-                # --- Tab 1: 指令TTS ---
-                with gr.TabItem("指令TTS (Instruct TTS)"):
+                # --- Tab 1: 零样本TTS (音色克隆) ---
+                with gr.TabItem("音色克隆 (Zero-shot TTS)"):
+                    with gr.Row():
+                        with gr.Column(scale=2):
+                            zs_tts_text = gr.Textbox(
+                                label="目标文本", info="输入您想合成的语音文本。"
+                            )
+                            zs_tts_prompt = gr.Audio(
+                                type="filepath",
+                                label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆音色。",
+                                sources=["upload", "microphone"],
+                            )
+                            zs_tts_btn = gr.Button("克隆并生成语音", variant="primary")
+                        with gr.Column(scale=1):
+                            zs_tts_status = gr.Markdown(value="💡 请输入文本并上传参考音频。")
+                            zs_tts_output = gr.Audio(
+                                label="生成结果", type="filepath", interactive=False
+                            )
+                # --- Tab 2: 指令TTS ---
+                with gr.TabItem("指令控制TTS (Instruct TTS)"):
                     with gr.Row():
                         with gr.Column(scale=2):
                             i_tts_type = gr.Dropdown(
@@ -303,25 +313,69 @@ class UniAudioDemoTab:
                         ],
                     )
 
-                # --- Tab 2: 零样本TTS (音色克隆) ---
-                with gr.TabItem("音色克隆 (Zero-shot TTS)"):
+                # --- Tab 3: 多人播客 ---
+                with gr.TabItem("播客 (Podcast)"):
                     with gr.Row():
                         with gr.Column(scale=2):
-                            zs_tts_text = gr.Textbox(
-                                label="目标文本", info="输入您想合成的语音文本。"
+                            cpod_text = gr.Textbox(
+                                lines=8,
+                                label="播客台本",
+                                info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人，且必须以 'speaker_1' 开头。",
                             )
-                            zs_tts_prompt = gr.Audio(
-                                type="filepath",
-                                label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆音色。",
-                                sources=["upload", "microphone"],
-                            )
-                            zs_tts_btn = gr.Button("克隆并生成语音", variant="primary")
+                            with gr.Row():
+                                with gr.Column():
+                                    gr.Markdown("#### 说话人1 音色设置")
+                                    cpod_spk1_choice = gr.Radio(
+                                        ["上传音频", "IP音色"], label="音色来源", value="上传音频"
+                                    )
+                                    cpod_spk1_ip = gr.Dropdown(
+                                        list(IP_DICT.keys()), label="选择IP角色", visible=False
+                                    )
+                                    cpod_spk1_audio = gr.Audio(
+                                        type="filepath",
+                                        label="上传/录制参考音频 (3-7秒)",
+                                        sources=["upload", "microphone"],
+                                        visible=True,
+                                    )
+                                with gr.Column():
+                                    gr.Markdown("#### 说话人2 音色设置")
+                                    cpod_spk2_choice = gr.Radio(
+                                        ["上传音频", "IP音色"], label="音色来源", value="上传音频"
+                                    )
+                                    cpod_spk2_ip = gr.Dropdown(
+                                        list(IP_DICT.keys()), label="选择IP角色", visible=False
+                                    )
+                                    cpod_spk2_audio = gr.Audio(
+                                        type="filepath",
+                                        label="上传/录制参考音频 (3-7秒)",
+                                        sources=["upload", "microphone"],
+                                        visible=True,
+                                    )
+                            with gr.Accordion("背景音乐设置 (可选)", open=False):
+                                cpod_add_bgm = gr.Checkbox(label="添加随机背景音乐", value=False)
+                                cpod_bgm_snr = gr.Slider(
+                                    0,
+                                    30,
+                                    value=18.0,
+                                    step=0.5,
+                                    label="信噪比 (SNR)",
+                                    info="值越大，背景音乐音量越小。",
+                                )
+                            with gr.Accordion("封面视频设置 (可选)", open=False):
+                                cpod_gen_video = gr.Checkbox(
+                                    label="生成播客封面视频",
+                                    value=False,
+                                    info="根据台本内容自动生成封面图片，并与音频合成为视频。",
+                                )
+                            cpod_btn = gr.Button("生成综合播客", variant="primary")
                         with gr.Column(scale=1):
-                            zs_tts_status = gr.Markdown(value="💡 请输入文本并上传参考音频。")
-                            zs_tts_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                            cpod_status = gr.Markdown(value="💡 请输入台本并为两位说话人配置音色。")
+                            cpod_output = gr.Audio(
+                                label="播客音频结果", type="filepath", interactive=False
                             )
-
+                            cpod_video_output = gr.Video(
+                                label="播客视频结果", visible=False, interactive=False
+                            )
                 # --- Tab 3: 多人播客 ---
                 # with gr.TabItem("播客 (Podcast)"):
                 #     with gr.Row():
@@ -350,7 +404,39 @@ class UniAudioDemoTab:
                 #                 label="生成结果", type="filepath", interactive=False
                 #             )
 
-                # --- Tab 4: 带背景音乐的语音 ---
+                # --- Tab 4: 纯背景音乐生成 ---
+                with gr.TabItem("背景音乐生成 (BGM)"):
+                    with gr.Row():
+                        with gr.Column(scale=2):
+                            bgm_genre = gr.Dropdown(
+                                DROPDOWN_CHOICES["bgm_genres"],
+                                label="风格 (Genre)",
+                                value="迪斯科",
+                            )
+                            bgm_mood = gr.Dropdown(
+                                DROPDOWN_CHOICES["bgm_moods"],
+                                label="情绪 (Mood)",
+                                value="快乐",
+                            )
+                            bgm_instrument = gr.Dropdown(
+                                DROPDOWN_CHOICES["bgm_instruments"],
+                                label="乐器 (Instrument)",
+                                value="电吉他",
+                            )
+                            bgm_theme = gr.Dropdown(
+                                DROPDOWN_CHOICES["bgm_themes"],
+                                label="主题 (Theme)",
+                                value="庆典与喜悦",
+                            )
+                            bgm_duration = gr.Slider(30, 60, value=35, step=1, label="时长 (秒)")
+                            bgm_btn = gr.Button("生成背景音乐", variant="primary")
+                        with gr.Column(scale=1):
+                            bgm_status = gr.Markdown(value="💡 请描述您想要的音乐。")
+                            bgm_output = gr.Audio(
+                                label="生成结果", type="filepath", interactive=False
+                            )
+
+                # --- Tab 5: 带背景音乐的语音 ---
                 with gr.TabItem("带背景音乐的语音 (Speech with BGM)"):
                     with gr.Row():
                         with gr.Column(scale=2):
@@ -399,38 +485,6 @@ class UniAudioDemoTab:
                                 label="生成结果", type="filepath", interactive=False
                             )
 
-                # --- Tab 5: 纯背景音乐生成 ---
-                with gr.TabItem("背景音乐生成 (BGM)"):
-                    with gr.Row():
-                        with gr.Column(scale=2):
-                            bgm_genre = gr.Dropdown(
-                                DROPDOWN_CHOICES["bgm_genres"],
-                                label="风格 (Genre)",
-                                value="迪斯科",
-                            )
-                            bgm_mood = gr.Dropdown(
-                                DROPDOWN_CHOICES["bgm_moods"],
-                                label="情绪 (Mood)",
-                                value="快乐",
-                            )
-                            bgm_instrument = gr.Dropdown(
-                                DROPDOWN_CHOICES["bgm_instruments"],
-                                label="乐器 (Instrument)",
-                                value="电吉他",
-                            )
-                            bgm_theme = gr.Dropdown(
-                                DROPDOWN_CHOICES["bgm_themes"],
-                                label="主题 (Theme)",
-                                value="庆典与喜悦",
-                            )
-                            bgm_duration = gr.Slider(30, 60, value=35, step=1, label="时长 (秒)")
-                            bgm_btn = gr.Button("生成背景音乐", variant="primary")
-                        with gr.Column(scale=1):
-                            bgm_status = gr.Markdown(value="💡 请描述您想要的音乐。")
-                            bgm_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
-                            )
-
                 # --- Tab 6: 音效生成 ---
                 with gr.TabItem("音效生成 (TTA)"):
                     with gr.Row():
@@ -444,75 +498,6 @@ class UniAudioDemoTab:
                             tta_status = gr.Markdown(value="💡 请输入音效的文本描述。")
                             tta_output = gr.Audio(
                                 label="生成结果", type="filepath", interactive=False
-                            )
-
-                # --- 新增：Tab 7: 综合播客 ---
-                with gr.TabItem("播客 (Podcast)"):
-                    with gr.Row():
-                        with gr.Column(scale=2):
-                            cpod_text = gr.Textbox(
-                                lines=8,
-                                label="播客台本",
-                                info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人，且必须以 'speaker_1' 开头。",
-                            )
-                            with gr.Row():
-                                with gr.Column():
-                                    gr.Markdown("#### 说话人1 音色设置")
-                                    cpod_spk1_choice = gr.Radio(
-                                        ["上传音频", "IP音色"], label="音色来源", value="上传音频"
-                                    )
-                                    cpod_spk1_ip = gr.Dropdown(
-                                        list(IP_DICT.keys()), label="选择IP角色", visible=False
-                                    )
-                                    cpod_spk1_audio = gr.Audio(
-                                        type="filepath",
-                                        label="上传/录制参考音频 (3-7秒)",
-                                        sources=["upload", "microphone"],
-                                        visible=True,
-                                    )
-                                with gr.Column():
-                                    gr.Markdown("#### 说话人2 音色设置")
-                                    cpod_spk2_choice = gr.Radio(
-                                        ["上传音频", "IP音色"], label="音色来源", value="上传音频"
-                                    )
-                                    cpod_spk2_ip = gr.Dropdown(
-                                        list(IP_DICT.keys()), label="选择IP角色", visible=False
-                                    )
-                                    cpod_spk2_audio = gr.Audio(
-                                        type="filepath",
-                                        label="上传/录制参考音频 (3-7秒)",
-                                        sources=["upload", "microphone"],
-                                        visible=True,
-                                    )
-                            with gr.Accordion("背景音乐设置 (可选)", open=False):
-                                cpod_add_bgm = gr.Checkbox(label="添加随机背景音乐", value=False)
-                                cpod_bgm_snr = gr.Slider(
-                                    0,
-                                    30,
-                                    value=18.0,
-                                    step=0.5,
-                                    label="信噪比 (SNR)",
-                                    info="值越大，背景音乐音量越小。",
-                                )
-                            # with gr.Accordion("封面视频设置 (可选)", open=False):
-                            #     cpod_gen_video = gr.Checkbox(
-                            #         label="生成播客封面视频",
-                            #         value=False,
-                            #         info="根据台本内容自动生成封面图片，并与音频合成为视频。",
-                            #     )
-                            cpod_gen_video = gr.Checkbox(
-                                label="生成播客封面视频",
-                                value=False,
-                                visible=False,
-                            )
-                            cpod_btn = gr.Button("生成综合播客", variant="primary")
-                        with gr.Column(scale=1):
-                            cpod_status = gr.Markdown(value="💡 请输入台本并为两位说话人配置音色。")
-                            cpod_output = gr.Audio(
-                                label="播客音频结果", type="filepath", interactive=False
-                            )
-                            cpod_video_output = gr.Video(
-                                label="播客视频结果", visible=False, interactive=False
                             )
 
             # --- 事件绑定 ---
@@ -648,10 +633,11 @@ class UniAudioDemoTab:
                         if video_path
                         else gr.update(visible=False)
                     )
+                    audio_update = audio_path if audio_path else None
                     yield (
                         gr.update(value=status_msg),
                         gr.update(interactive=True),
-                        audio_path,
+                        audio_update,
                         video_update,
                     )
                 except Exception as e:
@@ -868,7 +854,16 @@ class UniAudioDemoTab:
 
             # 检查内部业务成功状态 (根据 V4 接口定义)
             # V4 MOE 接口通常直接返回 task_id
+            if "task_id" not in inner_result.keys():
+                raw_request = inner_result.get("rawResult", {})
+                if isinstance(raw_request, str):
+                    try:
+                        raw_request = json.loads(raw_request)
+                        inner_result = raw_request.get("data", {})
+                    except json.JSONDecodeError:
+                        raise ValueError("无法解析 'rawResult' 字段为 JSON。")
             task_id = inner_result.get("task_id")
+
             if not task_id:
                 raise ValueError(f"未能从响应中获取 task_id: {inner_result}")
 
@@ -922,6 +917,15 @@ class UniAudioDemoTab:
                     poll_res = inner_result
 
                 # status: pending / completed / failed
+                if "status" not in poll_res.keys():
+                    raw_request = poll_res.get("rawResult", {})
+                    if isinstance(raw_request, str):
+                        try:
+                            raw_request = json.loads(raw_request)
+                            poll_res = raw_request.get("data", {})
+                        except json.JSONDecodeError:
+                            logger.warning("无法解析 'rawResult' 字段为 JSON。")
+                            continue
                 status = poll_res.get("status")
                 logger.info(f"[{task_type}] Poll status for task {task_id}: {status}")
 
