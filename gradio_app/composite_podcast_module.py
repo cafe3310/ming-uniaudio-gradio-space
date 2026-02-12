@@ -8,7 +8,6 @@ import re
 import tempfile
 import time
 import uuid
-import wave
 from typing import Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -173,11 +172,35 @@ class CompositePodcastGenerator:
             }
         ]
 
-    def _sync_call_service(self, payload: Dict, task_name: str, output_dir: str) -> str:
-        """
-        同步调用WebGW服务
-        """
-        # 1. 提交任务
+    def _get_headers(self) -> Dict:
+        return {
+            "Content-Type": "application/json",
+            "x-webgw-appid": self.app_id,
+            "x-webgw-version": "2.0",
+        }
+
+    def _parse_inner_result(self, res: Dict) -> Dict:
+        """从 WebGW 响应中解析出内层结果字典。"""
+        if not res.get("success"):
+            raise ConnectionError(f"WebGW 请求失败: {res.get('errorMessage', '未知错误')}")
+        result_str = res.get("resultObj", {}).get("result", "{}")
+        if isinstance(result_str, str):
+            inner_result = json.loads(result_str)
+        else:
+            inner_result = result_str
+        # 处理 rawResult 嵌套
+        if "task_id" not in inner_result and "status" not in inner_result:
+            raw_request = inner_result.get("rawResult", {})
+            if isinstance(raw_request, str):
+                try:
+                    raw_request = json.loads(raw_request)
+                    inner_result = raw_request.get("data", {})
+                except json.JSONDecodeError:
+                    pass
+        return inner_result
+
+    def _submit_task(self, payload: Dict, task_name: str) -> str:
+        """提交任务，返回 task_id。单次 HTTP 请求，不阻塞。"""
         submit_body = {
             "api_key": self.api_key,
             "api_project": self.api_project,
@@ -185,358 +208,96 @@ class CompositePodcastGenerator:
             "call_token": str(uuid.uuid4()),
             "call_args": payload,
         }
-        headers = {
-            "Content-Type": "application/json",
-            "x-webgw-appid": self.app_id,
-            "x-webgw-version": "2.0",
-        }
-
-        r = requests.post(self.webgw_url, json=submit_body, headers=headers, timeout=30)
+        r = requests.post(self.webgw_url, json=submit_body, headers=self._get_headers(), timeout=7)
         r.raise_for_status()
-        res = r.json()
-        if not res.get("success"):
-            raise ConnectionError(f"WebGW 任务提交失败: {res.get('errorMessage', '未知错误')}")
-
-        result_str = res.get("resultObj", {}).get("result", "{}")
-        if isinstance(result_str, str):
-            inner_result = json.loads(result_str)
-        else:
-            inner_result = result_str
-
-        if "task_id" not in inner_result.keys():
-            raw_request = inner_result.get("rawResult", {})
-            if isinstance(raw_request, str):
-                try:
-                    raw_request = json.loads(raw_request)
-                    inner_result = raw_request.get("data", {})
-                except json.JSONDecodeError:
-                    raise ValueError("无法解析 'rawResult' 字段为 JSON。")
+        inner_result = self._parse_inner_result(r.json())
         task_id = inner_result.get("task_id")
         if not task_id:
-            raise ValueError(f"[{task_name}] 未能从响应中获取 task_id: {inner_result}")
+            raise ValueError(f"[{task_name}] 未能获取 task_id: {inner_result}")
         logger.info(f"[{task_name}] 任务提交成功, Task ID: {task_id}")
+        return task_id
 
-        # 2. 轮询等待
-        start_time, timeout = time.time(), 600
-        while time.time() - start_time < timeout:
-            time.sleep(5)
-            poll_body = {
-                "api_key": self.api_key,
-                "api_project": self.api_project,
-                "call_name": "poll_task",
-                "call_token": str(uuid.uuid4()),
-                "call_args": {"task_id": task_id},
-            }
-            try:
-                r_poll = requests.post(self.webgw_url, json=poll_body, headers=headers, timeout=30)
-                if r_poll.status_code == 200:
-                    poll_res = r_poll.json()
-                    if poll_res.get("success"):
-                        poll_data_str = poll_res.get("resultObj", {}).get("result", "{}")
-                        if isinstance(poll_data_str, str):
-                            poll_data = json.loads(poll_data_str)
-                        else:
-                            poll_data = poll_data_str
-
-                        if "status" not in poll_data.keys():
-                            raw_request = poll_data.get("rawResult", {})
-                            if isinstance(raw_request, str):
-                                try:
-                                    raw_request = json.loads(raw_request)
-                                    poll_data = raw_request.get("data", {})
-                                except json.JSONDecodeError:
-                                    logger.warning("无法解析 'rawResult' 字段为 JSON。")
-                                    continue
-                        status = poll_data.get("status")
-                        if status == "completed" or status == "success":
-                            audio_url = poll_data.get("output_audio_url")
-                            if not audio_url:
-                                raise ValueError("任务完成但未返回音频URL")
-
-                            # --- 完整下载逻辑开始 ---
-                            try:
-                                # a. 解析URL，为代理下载做准备
-                                parsed_url = urlparse(audio_url)
-                                query_params = parse_qs(parsed_url.query)
-                                proxy_args = {
-                                    "filename": os.path.basename(parsed_url.path),
-                                    "oss_access_key_id": query_params.get("OSSAccessKeyId", [None])[
-                                        0
-                                    ],
-                                    "expires": query_params.get("Expires", [None])[0],
-                                    "signature": query_params.get("Signature", [None])[0],
-                                }
-
-                                # b. 通过WebGW代理下载音频
-                                proxy_payload = {
-                                    "api_key": self.api_key,
-                                    "api_project": self.api_project,
-                                    "call_name": "get_audio",
-                                    "call_token": str(uuid.uuid4()),
-                                    "call_args": proxy_args,
-                                }
-                                audio_resp = requests.post(
-                                    self.webgw_url, json=proxy_payload, headers=headers, timeout=60
-                                )
-                                audio_resp.raise_for_status()
-                                res_json = audio_resp.json()
-                                if not res_json.get("success"):
-                                    raise RuntimeError(
-                                        f"代理下载失败: {res_json.get('errorMessage', '未知')}"
-                                    )
-
-                                # c. 解析Gzip+Base64响应
-                                result_obj = res_json.get("resultObj", {})
-                                inner_result = result_obj.get("result", {})
-                                if isinstance(inner_result, str):
-                                    inner_result = json.loads(inner_result)
-
-                                if "gzippedRaw" not in inner_result:
-                                    raise ValueError("代理响应中缺少 'gzippedRaw' 字段")
-
-                                gzipped_b64 = inner_result["gzippedRaw"]
-                                compressed_data = base64.b64decode(gzipped_b64)
-
-                                # d. 解压Gzip数据
-                                with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as f_gz:
-                                    content = f_gz.read()
-
-                                # e. 保存文件
-                                output_path = os.path.join(
-                                    output_dir, f"{task_name}-{uuid.uuid4()}.wav"
-                                )
-                                with open(output_path, "wb") as f_out:
-                                    f_out.write(content)
-
-                                logger.info(
-                                    f"[{task_name}] 音频下载并解压成功，保存至: {output_path}"
-                                )
-                                return output_path
-                            except Exception as e:
-                                logger.error(f"音频下载或处理失败: {e}")
-                                raise RuntimeError(f"音频下载失败: {e}")
-                            # --- 完整下载逻辑结束 ---
-
-                        elif status == "failed":
-                            raise RuntimeError(
-                                f"任务执行失败: {poll_data.get('error_message', '未知错误')}"
-                            )
-            except Exception as e:
-                logger.warning(f"轮询请求时发生异常，将继续重试: {e}")
-        raise TimeoutError(f"任务 {task_id} 轮询超时({timeout}秒)。")
-
-    def _submit_and_wait_for_task_id(self, payload: Dict, task_name: str) -> str:
-        """
-        提交任务并轮询直到完成，只返回 task_id，不下载文件。
-        """
-        submit_body = {
+    def _poll_task(self, task_id: str) -> Dict:
+        """轮询一次任务状态，返回解析后的结果字典。单次 HTTP 请求，不阻塞。"""
+        poll_body = {
             "api_key": self.api_key,
             "api_project": self.api_project,
-            "call_name": "submit_task",
+            "call_name": "poll_task",
             "call_token": str(uuid.uuid4()),
-            "call_args": payload,
+            "call_args": {"task_id": task_id},
         }
-        headers = {
-            "Content-Type": "application/json",
-            "x-webgw-appid": self.app_id,
-            "x-webgw-version": "2.0",
-        }
-
-        r = requests.post(self.webgw_url, json=submit_body, headers=headers, timeout=30)
+        r = requests.post(self.webgw_url, json=poll_body, headers=self._get_headers(), timeout=7)
         r.raise_for_status()
+        return self._parse_inner_result(r.json())
 
-        res = r.json()
-        if not res.get("success"):
-            raise ConnectionError(f"WebGW 任务提交失败: {res.get('errorMessage', '未知错误')}")
+    def _download_via_proxy(self, url: str, output_path: str) -> str:
+        """通过 WebGW 代理下载文件（单次请求）。"""
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        proxy_args = {
+            "filename": os.path.basename(parsed_url.path),
+            "oss_access_key_id": query_params.get("OSSAccessKeyId", [None])[0],
+            "expires": query_params.get("Expires", [None])[0],
+            "signature": query_params.get("Signature", [None])[0],
+        }
+        proxy_payload = {
+            "api_key": self.api_key,
+            "api_project": self.api_project,
+            "call_name": "get_audio",
+            "call_token": str(uuid.uuid4()),
+            "call_args": proxy_args,
+        }
+        resp = requests.post(
+            self.webgw_url, json=proxy_payload, headers=self._get_headers(), timeout=7
+        )
+        resp.raise_for_status()
+        res_json = resp.json()
+        if not res_json.get("success"):
+            raise RuntimeError(f"代理下载失败: {res_json.get('errorMessage', '未知')}")
 
-        result_str = res.get("resultObj", {}).get("result", "{}")
-        if isinstance(result_str, str):
-            inner_result = json.loads(result_str)
-        else:
-            inner_result = result_str
-        if "task_id" not in inner_result.keys():
-            raw_request = inner_result.get("rawResult", {})
-            if isinstance(raw_request, str):
-                try:
-                    raw_request = json.loads(raw_request)
-                    inner_result = raw_request.get("data", {})
-                except json.JSONDecodeError:
-                    raise ValueError("无法解析 'rawResult' 字段为 JSON。")
-        task_id = inner_result.get("task_id")
-        if not task_id:
-            raise ValueError(f"[{task_name}] 未能从响应中获取 task_id: {inner_result}")
-        logger.info(f"[{task_name}] 任务提交成功, Task ID: {task_id}")
+        inner = res_json.get("resultObj", {}).get("result", {})
+        if isinstance(inner, str):
+            inner = json.loads(inner)
+        if "gzippedRaw" not in inner:
+            raise ValueError("代理响应中缺少 'gzippedRaw' 字段")
 
-        # 轮询等待任务完成（只确认状态，不下载）
-        start_time, timeout = time.time(), 600
+        compressed_data = base64.b64decode(inner["gzippedRaw"])
+        with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as f_gz:
+            content = f_gz.read()
+
+        with open(output_path, "wb") as f_out:
+            f_out.write(content)
+        logger.info(f"文件下载成功: {output_path}")
+        return output_path
+
+    def _poll_until_done(self, task_id: str, task_name: str, timeout: int = 600):
+        """
+        轮询生成器：每次轮询后 yield 已等待秒数。
+        调用方用 for elapsed in self._poll_until_done(...) 来驱动。
+        任务完成时自动退出；失败或超时则抛异常。
+        """
+        start_time = time.time()
+        poll_interval = 2
         while time.time() - start_time < timeout:
-            time.sleep(5)
-            poll_body = {
-                "api_key": self.api_key,
-                "api_project": self.api_project,
-                "call_name": "poll_task",
-                "call_token": str(uuid.uuid4()),
-                "call_args": {"task_id": task_id},
-            }
+            time.sleep(poll_interval)
+            logger.info(f"[{task_name}] 轮询中... 已等待 {int(time.time() - start_time)} 秒")
+            elapsed = int(time.time() - start_time)
             try:
-                r_poll = requests.post(self.webgw_url, json=poll_body, headers=headers, timeout=30)
-                if r_poll.status_code == 200:
-                    poll_res = r_poll.json()
-                    if poll_res.get("success"):
-                        poll_data_str = poll_res.get("resultObj", {}).get("result", "{}")
-                        if isinstance(poll_data_str, str):
-                            poll_data = json.loads(poll_data_str)
-                        else:
-                            poll_data = poll_data_str
-                        if "status" not in poll_data.keys():
-                            raw_request = poll_data.get("rawResult", {})
-                            if isinstance(raw_request, str):
-                                try:
-                                    raw_request = json.loads(raw_request)
-                                    poll_data = raw_request.get("data", {})
-                                except json.JSONDecodeError:
-                                    logger.warning("无法解析 'rawResult' 字段为 JSON。")
-                                    continue
-                        status = poll_data.get("status")
-                        if status in ("completed", "success"):
-                            logger.info(f"[{task_name}] 任务已完成, Task ID: {task_id}")
-                            return task_id
-                        elif status == "failed":
-                            raise RuntimeError(
-                                f"任务执行失败: {poll_data.get('error_message', '未知错误')}"
-                            )
+                poll_data = self._poll_task(task_id)
+                status = poll_data.get("status")
+                if status in ("completed", "success"):
+                    logger.info(f"[{task_name}] 任务完成, Task ID: {task_id}")
+                    return  # 正常退出生成器
+                elif status == "failed":
+                    error_msg = poll_data.get("error_message", poll_data.get("error", "未知错误"))
+                    raise RuntimeError(f"[{task_name}] 任务失败: {error_msg}")
+                # pending 则继续
             except RuntimeError:
                 raise
             except Exception as e:
-                logger.warning(f"轮询请求时发生异常，将继续重试: {e}")
-        raise TimeoutError(f"任务 {task_id} 轮询超时({timeout}秒)。")
-
-    def _download_final_result(
-        self, task_id: str, task_name: str, output_dir: str
-    ) -> Dict[str, Optional[str]]:
-        """
-        轮询 composite_audio_video 任务的结果，下载最终的音频或视频文件。
-        返回: {"audio_path": str|None, "video_path": str|None, "message": str}
-        """
-        headers = {
-            "Content-Type": "application/json",
-            "x-webgw-appid": self.app_id,
-            "x-webgw-version": "2.0",
-        }
-
-        start_time, timeout = time.time(), 600
-        while time.time() - start_time < timeout:
-            time.sleep(5)
-            poll_body = {
-                "api_key": self.api_key,
-                "api_project": self.api_project,
-                "call_name": "poll_task",
-                "call_token": str(uuid.uuid4()),
-                "call_args": {"task_id": task_id},
-            }
-            try:
-                r_poll = requests.post(self.webgw_url, json=poll_body, headers=headers, timeout=30)
-                if r_poll.status_code != 200:
-                    continue
-                poll_res = r_poll.json()
-                if not poll_res.get("success"):
-                    continue
-
-                poll_data_str = poll_res.get("resultObj", {}).get("result", "{}")
-                if isinstance(poll_data_str, str):
-                    poll_data = json.loads(poll_data_str)
-                else:
-                    poll_data = poll_data_str
-
-                if "status" not in poll_data.keys():
-                    raw_request = poll_data.get("rawResult", {})
-                    if isinstance(raw_request, str):
-                        try:
-                            raw_request = json.loads(raw_request)
-                            poll_data = raw_request.get("data", {})
-                        except json.JSONDecodeError:
-                            logger.warning("无法解析 'rawResult' 字段为 JSON。")
-                            continue
-                status = poll_data.get("status")
-                if status not in ("completed", "success"):
-                    if status == "failed":
-                        raise RuntimeError(
-                            f"复合任务执行失败: {poll_data.get('error_message', '未知错误')}"
-                        )
-                    continue
-
-                # 任务完成，下载产物
-                result = {
-                    "audio_path": None,
-                    "video_path": None,
-                    "message": poll_data.get("message", ""),
-                }
-
-                # 优先检查视频
-                video_url = poll_data.get("output_video_url")
-                audio_url = poll_data.get("output_audio_url")
-
-                download_url = video_url or audio_url
-                if not download_url:
-                    raise ValueError("复合任务完成但未返回任何输出URL")
-
-                # 通过代理下载
-                parsed_url = urlparse(download_url)
-                query_params = parse_qs(parsed_url.query)
-                proxy_args = {
-                    "filename": os.path.basename(parsed_url.path),
-                    "oss_access_key_id": query_params.get("OSSAccessKeyId", [None])[0],
-                    "expires": query_params.get("Expires", [None])[0],
-                    "signature": query_params.get("Signature", [None])[0],
-                }
-                proxy_payload = {
-                    "api_key": self.api_key,
-                    "api_project": self.api_project,
-                    "call_name": "get_audio",
-                    "call_token": str(uuid.uuid4()),
-                    "call_args": proxy_args,
-                }
-                resp = requests.post(
-                    self.webgw_url, json=proxy_payload, headers=headers, timeout=120
-                )
-                resp.raise_for_status()
-                res_json = resp.json()
-                if not res_json.get("success"):
-                    raise RuntimeError(f"代理下载失败: {res_json.get('errorMessage', '未知')}")
-
-                inner = res_json.get("resultObj", {}).get("result", {})
-                if isinstance(inner, str):
-                    inner = json.loads(inner)
-                if "gzippedRaw" not in inner:
-                    raise ValueError("代理响应中缺少 'gzippedRaw' 字段")
-
-                compressed_data = base64.b64decode(inner["gzippedRaw"])
-                with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as f_gz:
-                    content = f_gz.read()
-
-                if video_url:
-                    file_ext = ".mp4"
-                    out_path = os.path.join(output_dir, f"{task_name}-{uuid.uuid4()}{file_ext}")
-                    with open(out_path, "wb") as f_out:
-                        f_out.write(content)
-                    result["video_path"] = out_path
-                    logger.info(f"[{task_name}] 视频下载成功: {out_path}")
-                else:
-                    file_ext = ".wav"
-                    out_path = os.path.join(output_dir, f"{task_name}-{uuid.uuid4()}{file_ext}")
-                    with open(out_path, "wb") as f_out:
-                        f_out.write(content)
-                    result["audio_path"] = out_path
-                    logger.info(f"[{task_name}] 音频下载成功: {out_path}")
-
-                return result
-
-            except (RuntimeError, ValueError, TimeoutError):
-                raise
-            except Exception as e:
-                logger.warning(f"轮询请求时发生异常，将继续重试: {e}")
-
-        raise TimeoutError(f"复合任务 {task_id} 轮询超时({timeout}秒)。")
+                logger.warning(f"[{task_name}] 轮询异常，继续重试: {e}")
+            yield elapsed
+        raise TimeoutError(f"[{task_name}] 任务 {task_id} 超时({timeout}秒)")
 
     def _normalize_script(self, text: str) -> str:
         if not text or not text.strip():
@@ -622,10 +383,6 @@ class CompositePodcastGenerator:
         logger.info(f"文本已被切分为 {len(chunks)} 个块，并确保了对话的完整性和起始规则。")
         return chunks
 
-    def _get_duration(self, file_path: str) -> float:
-        with wave.open(file_path, "rb") as wf:
-            return wf.getnframes() / float(wf.getframerate())
-
     def generate(
         self,
         text,
@@ -640,87 +397,105 @@ class CompositePodcastGenerator:
         generate_video,
     ):
         """
-        核心生成逻辑。
-        新流程：各子任务只获取 task_id，最终由服务端 composite_audio_video 接口完成拼接/混音/视频合成。
+        核心生成逻辑，改为生成器函数。
+        yield ("progress", "消息") 表示进度更新。
+        yield ("done", (status_msg, audio_path, video_path)) 表示完成。
+        yield ("error", error_msg) 表示失败。
         """
         logger.info("=" * 20 + " 开始执行综合播客生成任务 " + "=" * 20)
+
         try:
             if not text or not text.strip().startswith("speaker_1"):
                 raise ValueError("播客台本不能为空或格式错误。")
 
-            raw_text = text  # 保留原始文本，供生图使用
+            raw_text = text
             text = self._normalize_script(text)
             persistent_dir = "temp_audio"
             os.makedirs(persistent_dir, exist_ok=True)
 
-            # 步骤1: 准备说话人音色（IP音色需要先生成再下载，因为需要作为后续任务的输入）
+            # ========== 步骤1: 准备说话人音色 ==========
             prompt_b64s = [None, None]
             choices = [
                 (spk1_choice, spk1_ip, spk1_audio, 1),
                 (spk2_choice, spk2_ip, spk2_audio, 2),
             ]
 
-            with tempfile.TemporaryDirectory() as temp_dir:
-                for choice, ip_name, audio_file, spk_num in choices:
-                    if choice == "IP音色":
-                        if not ip_name:
-                            raise ValueError(f"请为说话人{spk_num}选择一个IP角色。")
+            for choice, ip_name, audio_file, spk_num in choices:
+                if choice == "IP音色":
+                    if not ip_name:
+                        raise ValueError(f"请为说话人{spk_num}选择一个IP角色。")
 
-                        if ip_name in self.ip_lines_dict:
-                            ip_tts_text = self.ip_lines_dict[ip_name]
-                        else:
-                            # ip_name 不在预设台词中，从用户台本中提取对应 speaker 的第一句话
-                            ip_tts_text = None
-                            for line in text.split("\n"):
-                                line = line.strip()
-                                if line.startswith(f"speaker_{spk_num}:"):
-                                    extracted = line.split(":", 1)[1].strip()
-                                    if extracted:
-                                        ip_tts_text = extracted
-                                        break
-                            if not ip_tts_text:
-                                raise ValueError(
-                                    f"IP角色 '{ip_name}' 无预设台词，"
-                                    f"且台本中未找到 speaker_{spk_num} 的有效发言，"
-                                    f"无法生成参考音频。"
-                                )
-                            logger.info(
-                                f"[IP音色] '{ip_name}' 无预设台词，"
-                                f"使用台本中 speaker_{spk_num} 的第一句话: '{ip_tts_text[:50]}...'"
+                    # 确定 IP TTS 文本
+                    if ip_name in self.ip_lines_dict:
+                        ip_tts_text = self.ip_lines_dict[ip_name]
+                    else:
+                        ip_tts_text = None
+                        for line in text.split("\n"):
+                            line = line.strip()
+                            if line.startswith(f"speaker_{spk_num}:"):
+                                extracted = line.split(":", 1)[1].strip()
+                                if extracted:
+                                    ip_tts_text = extracted
+                                    break
+                        if not ip_tts_text:
+                            raise ValueError(
+                                f"IP角色 '{ip_name}' 无预设台词，"
+                                f"且台本中未找到 speaker_{spk_num} 的有效发言。"
                             )
 
-                        payload = {
-                            "task_type": "TTS",
-                            "instruct_type": "IP",
-                            "text": ip_tts_text,
-                            "caption": json.dumps(
-                                {"audio_sequence": [{"IP": self.ip_dict[ip_name]}]}
-                            ),
-                        }
-                        # IP音色需要下载，因为其base64要作为后续podcast任务的输入
-                        ip_audio_path = self._sync_call_service(
-                            payload, f"ip-gen-spk{spk_num}", temp_dir
-                        )
-                        prompt_b64s[spk_num - 1] = self._file_to_b64(ip_audio_path)
-                    else:
-                        if not audio_file:
-                            raise ValueError(f"请为说话人{spk_num}提供参考音频。")
-                        prompt_b64s[spk_num - 1] = self._file_to_b64(audio_file)
+                    yield ("progress", f"正在生成说话人{spk_num}的IP音色...")
 
-            # 步骤2: 分片生成播客音频，只收集 task_id
+                    payload = {
+                        "task_type": "TTS",
+                        "instruct_type": "IP",
+                        "text": ip_tts_text,
+                        "caption": json.dumps({"audio_sequence": [{"IP": self.ip_dict[ip_name]}]}),
+                    }
+                    ip_task_id = self._submit_task(payload, f"ip-gen-spk{spk_num}")
+
+                    # 轮询等待 IP 音色生成完成
+                    for elapsed in self._poll_until_done(
+                        ip_task_id, f"IP音色-说话人{spk_num}", 600
+                    ):
+                        yield ("progress", f"正在生成说话人{spk_num}的IP音色... ({elapsed}s)")
+
+                    # IP 完成后需要下载音频用作后续输入
+                    poll_data = self._poll_task(ip_task_id)
+                    audio_url = poll_data.get("output_audio_url")
+                    if not audio_url:
+                        raise ValueError(f"IP音色任务完成但未返回音频URL")
+
+                    with tempfile.TemporaryDirectory() as tmp:
+                        ip_audio_path = os.path.join(tmp, f"ip_spk{spk_num}.wav")
+                        self._download_via_proxy(audio_url, ip_audio_path)
+                        prompt_b64s[spk_num - 1] = self._file_to_b64(ip_audio_path)
+                else:
+                    if not audio_file:
+                        raise ValueError(f"请为说话人{spk_num}提供参考音频。")
+                    prompt_b64s[spk_num - 1] = self._file_to_b64(audio_file)
+
+            # ========== 步骤2: 分片生成播客音频 ==========
             chunks = self._split_chunks(text)
             speech_task_ids = []
+
             for i, chunk in enumerate(chunks):
-                task_id = self._submit_and_wait_for_task_id(
+                yield ("progress", f"正在提交播客分片 {i+1}/{len(chunks)}...")
+                task_id = self._submit_task(
                     {"task_type": "podcast", "text": chunk, "prompt_wavs_b64": prompt_b64s},
                     f"podcast-chunk-{i}",
                 )
+                # 轮询等待该分片完成
+                for elapsed in self._poll_until_done(task_id, f"播客分片{i+1}", 600):
+                    yield ("progress", f"正在生成播客分片 {i+1}/{len(chunks)}... ({elapsed}s)")
+
                 speech_task_ids.append(task_id)
+
             logger.info(f"所有播客分片任务已完成，共 {len(speech_task_ids)} 个 task_id")
 
-            # 步骤3: 可选BGM，只获取 task_id
+            # ========== 步骤3: 可选BGM ==========
             bgm_task_id = None
             if add_bgm:
+                yield ("progress", "正在生成背景音乐...")
                 bgm_params = random.choice(self.bgm_params_list)
                 bgm_prompt = (
                     f"Genre: {bgm_params['genre']}. "
@@ -729,44 +504,54 @@ class CompositePodcastGenerator:
                     f"Theme: {bgm_params['theme']}. "
                     f"Duration: 60s."
                 )
-                bgm_task_id = self._submit_and_wait_for_task_id(
-                    {"task_type": "bgm", "prompt_text": bgm_prompt},
-                    "bgm-gen",
+                bgm_task_id = self._submit_task(
+                    {"task_type": "bgm", "prompt_text": bgm_prompt}, "bgm-gen"
                 )
+                for elapsed in self._poll_until_done(bgm_task_id, "BGM生成", 600):
+                    yield ("progress", f"正在生成背景音乐... ({elapsed}s)")
+
                 logger.info(f"BGM 任务已完成，task_id: {bgm_task_id}")
 
-            # 步骤4: 提交 composite_audio_video 任务，由服务端完成拼接/混音/视频
+            # ========== 步骤4: 提交 composite_audio_video ==========
+            yield ("progress", "正在提交最终合成任务...")
+
             composite_payload = {
                 "task_type": "composite_audio_video",
                 "speech_task_id_list": speech_task_ids,
             }
-            # 传递原始文本供服务端生图（如果需要视频）
             if generate_video:
                 composite_payload["raw_text"] = raw_text
             if bgm_task_id:
                 composite_payload["bgm_task_id"] = bgm_task_id
                 composite_payload["mix_snr"] = float(bgm_snr)
 
-            composite_task_id = self._submit_and_wait_for_task_id(
-                composite_payload, "composite-final"
-            )
+            composite_task_id = self._submit_task(composite_payload, "composite-final")
 
-            # 步骤5: 下载最终产物（只有一次写入 persistent_dir）
-            download_result = self._download_final_result(
-                composite_task_id, "composite-final", persistent_dir
-            )
+            for elapsed in self._poll_until_done(composite_task_id, "最终合成", 600):
+                yield ("progress", f"正在进行最终合成... ({elapsed}s)")
 
-            final_audio_path = download_result.get("audio_path")
-            final_video_path = download_result.get("video_path")
-            message = download_result.get("message", "")
+            # ========== 步骤5: 下载最终产物 ==========
+            yield ("progress", "正在下载最终产物...")
 
-            logger.info(
-                f"复合任务完成。音频: {final_audio_path}, "
-                f"视频: {final_video_path}, 消息: {message}"
-            )
+            poll_data = self._poll_task(composite_task_id)
+            video_url = poll_data.get("output_video_url")
+            audio_url = poll_data.get("output_audio_url")
+            download_url = video_url or audio_url
+
+            if not download_url:
+                raise ValueError("合成任务完成但未返回任何输出URL")
+
+            if video_url:
+                out_path = os.path.join(persistent_dir, f"podcast_video_{uuid.uuid4()}.mp4")
+                self._download_via_proxy(video_url, out_path)
+                yield ("done", ("✅ 成功！", None, out_path))
+            else:
+                out_path = os.path.join(persistent_dir, f"podcast_{uuid.uuid4()}.wav")
+                self._download_via_proxy(audio_url, out_path)
+                yield ("done", ("✅ 成功！", out_path, None))
+
             logger.info("=" * 20 + " 综合播客生成任务成功 " + "=" * 20)
-            return "✅ 成功！", final_audio_path, final_video_path
 
         except Exception as e:
             logger.error("综合播客任务失败！", exc_info=True)
-            raise e
+            yield ("error", str(e))

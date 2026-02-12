@@ -76,61 +76,61 @@ DROPDOWN_CHOICES = {
 }
 
 IP_DICT = {
-    "爱新觉罗·弘历": "雍正王朝_爱新觉罗·弘历",
-    "爱新觉罗·弘时": "雍正王朝_爱新觉罗·弘时",
-    "曹操": "三国演义_曹操",
-    "刁光斗": "大宋提刑官_刁光斗",
-    "丰兰息": "且试天下_丰兰息",
-    "公孙胜": "水浒传_公孙胜",
-    "关涛": "幸福到万家_关涛",
-    "关雪": "哈尔滨一九四四_关雪",
-    "郭德纲": "郭德纲_郭德纲",
-    "郭启东": "风吹半夏_郭启东",
-    "何幸福": "幸福到万家_何幸福",
-    "灰太狼": "喜羊羊与灰太狼_灰太狼",
+    # "爱新觉罗·弘历": "雍正王朝_爱新觉罗·弘历",
+    # "爱新觉罗·弘时": "雍正王朝_爱新觉罗·弘时",
+    # "曹操": "三国演义_曹操",
+    # "刁光斗": "大宋提刑官_刁光斗",
+    # "丰兰息": "且试天下_丰兰息",
+    # "公孙胜": "水浒传_公孙胜",
+    # "关涛": "幸福到万家_关涛",
+    # "关雪": "哈尔滨一九四四_关雪",
+    # "郭德纲": "郭德纲_郭德纲",
+    # "郭启东": "风吹半夏_郭启东",
+    # "何幸福": "幸福到万家_何幸福",
+    # "灰太狼": "喜羊羊与灰太狼_灰太狼",
     "康熙": "康熙王朝_康熙",
-    "李蔷": "法医秦明_李蔷",
-    "李涯": "潜伏_李涯",
-    "卢怀德": "大宋提刑官_卢怀德",
-    "陆建勋": "老九门_陆建勋",
-    "陆桥山": "潜伏_陆桥山",
-    "穆晚秋": "潜伏_穆晚秋",
-    "年羹尧": "雍正王朝_年羹尧",
+    # "李蔷": "法医秦明_李蔷",
+    # "李涯": "潜伏_李涯",
+    # "卢怀德": "大宋提刑官_卢怀德",
+    # "陆建勋": "老九门_陆建勋",
+    # "陆桥山": "潜伏_陆桥山",
+    # "穆晚秋": "潜伏_穆晚秋",
+    # "年羹尧": "雍正王朝_年羹尧",
     "潘金莲": "水浒传_潘金莲",
-    "潘越": "哈尔滨一九四四_潘越",
+    # "潘越": "哈尔滨一九四四_潘越",
     "佩奇": "小猪佩奇_佩奇",
-    "齐铁嘴": "老九门_齐铁嘴",
-    "秦明": "法医秦明_秦明",
-    "青年康熙": "康熙王朝_青年康熙",
-    "裘德考": "老九门_裘德考",
-    "荣妃": "康熙王朝_荣妃",
+    # "齐铁嘴": "老九门_齐铁嘴",
+    # "秦明": "法医秦明_秦明",
+    # "青年康熙": "康熙王朝_青年康熙",
+    # "裘德考": "老九门_裘德考",
+    # "荣妃": "康熙王朝_荣妃",
     "四郎": "甄嬛传_四郎",
-    "司徒末": "致我们暖暖的小时光_司徒末",
-    "宋慈": "大宋提刑官_宋慈",
-    "苏麻喇姑": "康熙王朝_苏麻喇姑",
-    "苏培盛": "甄嬛传_苏培盛",
-    "孙颖莎": "孙颖莎_孙颖莎",
+    # "司徒末": "致我们暖暖的小时光_司徒末",
+    # "宋慈": "大宋提刑官_宋慈",
+    # "苏麻喇姑": "康熙王朝_苏麻喇姑",
+    # "苏培盛": "甄嬛传_苏培盛",
+    # "孙颖莎": "孙颖莎_孙颖莎",
     "唐僧": "西游记_唐僧",
-    "铁铉": "山河月明_铁铉",
-    "王翠平": "潜伏_王翠平",
-    "吴三桂": "康熙王朝_吴三桂",
-    "邬思道": "雍正王朝_邬思道",
+    # "铁铉": "山河月明_铁铉",
+    # "王翠平": "潜伏_王翠平",
+    # "吴三桂": "康熙王朝_吴三桂",
+    # "邬思道": "雍正王朝_邬思道",
     "武松": "水浒传_武松",
-    "萧崇": "少年歌行_萧崇",
-    "孝庄": "康熙王朝_孝庄",
-    "许半夏": "风吹半夏_许半夏",
-    "徐文昌": "安家_徐文昌",
+    # "萧崇": "少年歌行_萧崇",
+    # "孝庄": "康熙王朝_孝庄",
+    # "许半夏": "风吹半夏_许半夏",
+    # "徐文昌": "安家_徐文昌",
     "野原美伢 (美伢)": "蜡笔小新_野原美伢 (美伢)",
     "野原新之助 (小新)": "蜡笔小新_野原新之助 (小新)",
     "雍正": "雍正王朝_雍正",
-    "于谦": "于谦_于谦",
+    # "于谦": "于谦_于谦",
     "余则成": "潜伏_余则成",
-    "张启山": "老九门_张启山",
-    "朱标": "山河月明_朱标",
-    "朱棣": "山河月明_朱棣",
-    "朱颜": "玉骨遥_朱颜",
-    "朱元璋": "山河月明_朱元璋",
-    "左蓝": "潜伏_左蓝",
+    # "张启山": "老九门_张启山",
+    # "朱标": "山河月明_朱标",
+    # "朱棣": "山河月明_朱棣",
+    # "朱颜": "玉骨遥_朱颜",
+    # "朱元璋": "山河月明_朱元璋",
+    # "左蓝": "潜伏_左蓝",
 }
 
 
@@ -172,8 +172,8 @@ def load_and_merge_ips(original_dict: dict, filepath: str) -> dict:
     )
 
     # 合并字典：将排序后的新IP追加到原始字典后面
-    merged_dict = original_dict.copy()
-    merged_dict.update(sorted_new_ips)
+    merged_dict = sorted_new_ips.copy()
+    merged_dict.update(original_dict)
 
     return merged_dict
 
@@ -235,9 +235,10 @@ class UniAudioDemoTab:
                     with gr.Row():
                         with gr.Column(scale=2):
                             i_tts_type = gr.Dropdown(
-                                ["dialect", "emotion", "IP", "style", "basic"],
+                                # ["dialect", "emotion", "IP", "style", "basic"],
+                                ["语速/语调/音量", "方言", "情感", "音色设计", "精品音色"],
                                 label="指令类型",
-                                value="dialect",
+                                value="语速/语调/音量",
                             )
                             i_tts_text = gr.Textbox(label="合成文本", info="输入要合成的语音文本。")
                             i_tts_prompt = gr.Audio(
@@ -286,16 +287,16 @@ class UniAudioDemoTab:
                             )
 
                     def update_details_visibility(instruct_type):
-                        prompt_visible = instruct_type not in ["IP", "style"]
+                        prompt_visible = instruct_type not in ["精品音色", "音色设计"]
                         return {
                             i_tts_prompt: gr.update(visible=prompt_visible),
-                            i_tts_emotion: gr.update(visible=instruct_type == "emotion"),
-                            i_tts_dialect: gr.update(visible=instruct_type == "dialect"),
-                            i_tts_ip: gr.update(visible=instruct_type == "IP"),
-                            i_tts_style: gr.update(visible=instruct_type == "style"),
-                            i_tts_speed: gr.update(visible=instruct_type == "basic"),
-                            i_tts_pitch: gr.update(visible=instruct_type == "basic"),
-                            i_tts_volume: gr.update(visible=instruct_type == "basic"),
+                            i_tts_emotion: gr.update(visible=instruct_type == "情感"),
+                            i_tts_dialect: gr.update(visible=instruct_type == "方言"),
+                            i_tts_ip: gr.update(visible=instruct_type == "精品音色"),
+                            i_tts_style: gr.update(visible=instruct_type == "音色设计"),
+                            i_tts_speed: gr.update(visible=instruct_type == "语速/语调/音量"),
+                            i_tts_pitch: gr.update(visible=instruct_type == "语速/语调/音量"),
+                            i_tts_volume: gr.update(visible=instruct_type == "语速/语调/音量"),
                         }
 
                     i_tts_type.change(
@@ -365,7 +366,7 @@ class UniAudioDemoTab:
                                 cpod_gen_video = gr.Checkbox(
                                     label="生成播客封面视频",
                                     value=False,
-                                    info="根据台本内容自动生成封面图片，并与音频合成为视频。",
+                                    info="根据台本内容自动生成封面图片，并与音频合成为视频。图片生成非ming-omni-tts能力，故可能生成失败，仅返回音频",
                                 )
                             cpod_btn = gr.Button("生成综合播客", variant="primary")
                         with gr.Column(scale=1):
@@ -501,8 +502,17 @@ class UniAudioDemoTab:
                             )
 
             # --- 事件绑定 ---
+            # 中文显示名 → 后端 instruct_type 值
+            INSTRUCT_TYPE_MAP = {
+                "方言": "dialect",
+                "情感": "emotion",
+                "精品音色": "IP",
+                "音色设计": "style",
+                "语速/语调/音量": "basic",
+            }
+
             def i_tts_submit(
-                instruct_type,
+                instruct_type_cn,
                 text,
                 prompt_audio,
                 emotion,
@@ -513,6 +523,10 @@ class UniAudioDemoTab:
                 pitch,
                 volume,
             ):
+                instruct_type = INSTRUCT_TYPE_MAP.get(instruct_type_cn)
+                if not instruct_type:
+                    raise gr.Error(f"未知的指令类型: '{instruct_type_cn}'")
+
                 details = {}
                 if instruct_type == "emotion":
                     details = {"情感": emotion}
@@ -528,6 +542,34 @@ class UniAudioDemoTab:
                 elif instruct_type == "basic":
                     details = {"语速": speed, "基频": pitch, "音量": volume}
                 yield from self._submit_and_poll("TTS", instruct_type, text, prompt_audio, details)
+
+            # def i_tts_submit(
+            #     instruct_type,
+            #     text,
+            #     prompt_audio,
+            #     emotion,
+            #     dialect,
+            #     ip_choice,
+            #     style,
+            #     speed,
+            #     pitch,
+            #     volume,
+            # ):
+            #     details = {}
+            #     if instruct_type == "emotion":
+            #         details = {"情感": emotion}
+            #     elif instruct_type == "dialect":
+            #         details = {"方言": dialect}
+            #     elif instruct_type == "IP":
+            #         backend_ip = IP_DICT.get(ip_choice)
+            #         if not backend_ip:
+            #             raise gr.Error(f"未找到IP角色'{ip_choice}'的配置。")
+            #         details = {"IP": backend_ip}
+            #     elif instruct_type == "style":
+            #         details = {"风格": style}
+            #     elif instruct_type == "basic":
+            #         details = {"语速": speed, "基频": pitch, "音量": volume}
+            #     yield from self._submit_and_poll("TTS", instruct_type, text, prompt_audio, details)
 
             i_tts_btn.click(
                 fn=i_tts_submit,
@@ -608,14 +650,14 @@ class UniAudioDemoTab:
                 generate_video,
             ):
                 yield (
-                    gr.update(value="⏳ 任务已开始，后台正在全力处理..."),
+                    gr.update(value="⏳ 任务已开始..."),
                     gr.update(interactive=False),
                     None,
                     gr.update(visible=False),
                 )
 
                 try:
-                    status_msg, audio_path, video_path = self.podcast_generator.generate(
+                    for msg_type, payload in self.podcast_generator.generate(
                         text,
                         spk1_choice,
                         spk1_ip,
@@ -626,22 +668,36 @@ class UniAudioDemoTab:
                         add_bgm,
                         bgm_snr,
                         generate_video,
-                    )
-
-                    video_update = (
-                        gr.update(visible=True, value=video_path)
-                        if video_path
-                        else gr.update(visible=False)
-                    )
-                    audio_update = audio_path if audio_path else None
-                    yield (
-                        gr.update(value=status_msg),
-                        gr.update(interactive=True),
-                        audio_update,
-                        video_update,
-                    )
+                    ):
+                        if msg_type == "progress":
+                            yield (
+                                gr.update(value=f"⏳ {payload}"),
+                                gr.update(interactive=False),
+                                None,
+                                gr.update(),
+                            )
+                        elif msg_type == "done":
+                            status_msg, audio_path, video_path = payload
+                            video_update = (
+                                gr.update(visible=True, value=video_path)
+                                if video_path
+                                else gr.update(visible=False)
+                            )
+                            yield (
+                                gr.update(value=status_msg),
+                                gr.update(interactive=True),
+                                audio_path,
+                                video_update,
+                            )
+                        elif msg_type == "error":
+                            yield (
+                                gr.update(value=f"❌ 错误: {payload}"),
+                                gr.update(interactive=True),
+                                None,
+                                gr.update(visible=False),
+                            )
                 except Exception as e:
-                    logger.error("综合播客后台任务执行时发生异常", exc_info=True)
+                    logger.error("综合播客任务异常", exc_info=True)
                     yield (
                         gr.update(value=f"❌ 错误: {e}"),
                         gr.update(interactive=True),
