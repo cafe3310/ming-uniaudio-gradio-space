@@ -70,7 +70,7 @@ DROPDOWN_CHOICES = {
     ),
     "swb_themes": list(set(["生日", "旅行", "运动"])),
     "dialects": list(set(["四川话", "广粤话"])),
-    "emotions": list(set(["中性", "高兴", "惊讶", "愤怒", "悲伤", "厌恶", "恐惧"])),
+    "emotions": list(set(["愤怒", "高兴", "悲伤"])),
     "env_sounds": [],  # 原 Demo 未使用
 }
 
