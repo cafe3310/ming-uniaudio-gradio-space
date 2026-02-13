@@ -203,9 +203,15 @@ class MingOmniTTSDemoTab:
                     with gr.Row():
                         with gr.Column(scale=2):
                             i_tts_type = gr.Dropdown(
-                                ["dialect", "emotion", "IP", "style", "basic"],
+                                [
+                                    ("方言 (dialect)", "dialect"),
+                                    ("情感 (emotion)", "emotion"),
+                                    ("IP (IP)", "IP"),
+                                    ("风格 (style)", "style"),
+                                    ("基础 (basic)", "basic")
+                                ],
                                 label="指令类型",
-                                value="dialect",
+                                value="emotion",
                             )
                             i_tts_text = gr.Textbox(label="合成文本", info="输入要合成的语音文本。")
                             i_tts_prompt = gr.Audio(

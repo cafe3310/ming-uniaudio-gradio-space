@@ -18,23 +18,29 @@ class AudioInstructTab:
                     with gr.Row():
                         with gr.Column(scale=1):
                             instruct_type = gr.Radio(
-                                ["basic", "dialect", "emotion", "IP", "style"],
+                                [
+                                    ("基础 (basic)", "basic"),
+                                    ("方言 (dialect)", "dialect"),
+                                    ("情感 (emotion)", "emotion"),
+                                    ("IP (IP)", "IP"),
+                                    ("风格 (style)", "style")
+                                ],
                                 label="指令类型",
-                                value="basic"
+                                value="emotion"
                             )
                             text_input = gr.Textbox(label="输入文本")
                             prompt_audio = gr.Audio(type="filepath", label="参考音频")
                             speaker_id = gr.Textbox(label="说话人ID", value="speaker_1")
 
                             # 动态显示的控件组
-                            with gr.Group(visible=True) as basic_controls:
+                            with gr.Group(visible=False) as basic_controls:
                                 pitch_radio = gr.Radio(["低", "中", "高"], label="基频", value="中")
                                 volume_radio = gr.Radio(["低", "中", "高"], label="音量", value="中")
                                 speed_radio = gr.Radio(["慢速", "中速", "快速"], label="语速", value="中速")
 
                             with gr.Group(visible=False) as dialect_controls:
                                 dialect_input = gr.Textbox(label="方言")
-                            with gr.Group(visible=False) as emotion_controls:
+                            with gr.Group(visible=True) as emotion_controls:
                                 emotion_input = gr.Textbox(label="情感")
                             with gr.Group(visible=False) as ip_controls:
                                 ip_character_input = gr.Textbox(label="IP角色")
@@ -192,6 +198,7 @@ class AudioInstructTab:
 
     def update_ui_visibility(self, instruct_type):
         """根据指令类型更新 UI 控件的可见性"""
+        # Gradio Radio with tuples passes the 'value' to the function
         if instruct_type in ["IP", "style"]:
             new_audio_label = "参考音频 (在此模式下可选/不起作用)"
         else:
