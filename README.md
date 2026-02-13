@@ -1,6 +1,6 @@
-# Ming-Omni-TTS Gradio Demo
+# Ming-omni-tts Gradio Demo
 
-Ling LLM 系列 Ming-Omni-TTS 音频模型的演示应用。
+Ling LLM 系列 Ming-omni-tts 音频模型的演示应用。
 
 [Ming-v2 模型系列](https://huggingface.co/collections/inclusionAI/ming-v2)
 
