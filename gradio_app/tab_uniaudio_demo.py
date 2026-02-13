@@ -194,8 +194,8 @@ class MingOmniTTSDemoTab:
         self.api_project = api_project
 
     def create_tab(self):
-        with gr.TabItem("Ming-Omni-TTS V4 MOE 综合演示"):
-            gr.Markdown("## Ming-Omni-TTS V4 MOE 综合能力演示")
+        with gr.TabItem("Ming-omni-tts"):
+            gr.Markdown("## Ming-omni-tts 综合能力演示")
 
             with gr.Tabs():
                 # --- Tab 1: 指令TTS ---
