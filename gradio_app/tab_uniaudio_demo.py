@@ -180,11 +180,9 @@ def load_and_merge_ips(original_dict: dict, filepath: str) -> dict:
 IP_DICT = load_and_merge_ips(IP_DICT, "uniaudio_ip_list.txt")
 
 
-class UniAudioDemoTab:
+class MingOmniTTSDemoTab:
     """
-    一个集成的 Gradio Tab，移植自原独立的 'instuct-tts-gradio.py' 演示脚本。
-    包含：指令TTS、零样本TTS、播客、BGM生成、音效生成等多个功能。
-    独立实现了基于 UniAudio V4 MOE (WebGW) 的请求逻辑。
+    独立实现了基于 Ming-Omni-TTS V4 MOE (WebGW) 的请求逻辑。
     """
 
     def __init__(
@@ -196,8 +194,8 @@ class UniAudioDemoTab:
         self.api_project = api_project
 
     def create_tab(self):
-        with gr.TabItem("UniAudio V4 MOE 综合演示"):
-            gr.Markdown("## UniAudio V4 MOE 综合能力演示")
+        with gr.TabItem("Ming-Omni-TTS V4 MOE 综合演示"):
+            gr.Markdown("## Ming-Omni-TTS V4 MOE 综合能力演示")
 
             with gr.Tabs():
                 # --- Tab 1: 指令TTS ---

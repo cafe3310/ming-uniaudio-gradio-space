@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from pydub import AudioSegment
 from scipy.io import wavfile
-from tab_uniaudio_demo import UniAudioDemoTab
+from tab_uniaudio_demo import MingOmniTTSDemoTab
 
 # 加载 .secret 文件中的环境变量
 load_dotenv(dotenv_path=".secret")
@@ -553,7 +553,7 @@ class GradioInterface:
         self.service = speech_service
 
         # 初始化 UniAudio V4 MOE 演示 Tab
-        self.uniaudio_demo_tab = UniAudioDemoTab(
+        self.uniaudio_demo_tab = MingOmniTTSDemoTab(
             webgw_url=self.service.WEB_GW_API_URL,
             webgw_api_key=self.service.WEB_GW_API_KEY,
             webgw_app_id=self.service.WEB_GW_APP_ID,
@@ -599,7 +599,7 @@ class GradioInterface:
             font=["PingFang SC", "SF Pro", "Microsoft YaHei", "Segoe UI", "sans-serif"],
         )
         with gr.Blocks(
-            title="Ming UniAudio 演示",
+            title="Ming-Omni-TTS 演示",
             analytics_enabled=False,
             css=self.custom_css,
             theme=theme,
@@ -615,7 +615,7 @@ class GradioInterface:
 
             with gr.Row(variant="panel", elem_id="header-row"):
                 gr.HTML(
-                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-UniAudio 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。</p></div></div>"""
+                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-Omni-TTS 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。 [Ming-v2 系列](https://huggingface.co/collections/inclusionAI/ming-v2)</p></div></div>"""
                 )
 
             with gr.Tabs():
