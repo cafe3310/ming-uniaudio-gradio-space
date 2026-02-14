@@ -14,6 +14,7 @@ from loguru import logger
 from pydub import AudioSegment
 from scipy.io import wavfile
 from tab_uniaudio_demo import MingOmniTTSDemoTab
+from i18n import I18nManager
 
 # 加载 .secret 文件中的环境变量
 load_dotenv(dotenv_path=".secret")
@@ -551,12 +552,16 @@ class SpeechService:
 class GradioInterface:
     def __init__(self, speech_service: SpeechService):
         self.service = speech_service
+        
+        # 初始化 i18n
+        self.i18n = I18nManager(default_lang="zh")
 
         # 初始化 UniAudio V4 MOE 演示 Tab
         self.uniaudio_demo_tab = MingOmniTTSDemoTab(
             webgw_url=self.service.WEB_GW_API_URL,
             webgw_api_key=self.service.WEB_GW_API_KEY,
             webgw_app_id=self.service.WEB_GW_APP_ID,
+            i18n=self.i18n,
         )
 
         self.custom_css = """
@@ -580,6 +585,16 @@ class GradioInterface:
             }
             input, textarea {
                 font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+            }
+            #language-switcher {
+                position: absolute;
+                right: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 0.95em;
             }
             """
         self.demo = self._create_interface()
@@ -615,19 +630,25 @@ class GradioInterface:
 
             with gr.Row(variant="panel", elem_id="header-row"):
                 gr.HTML(
-                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-omni-tts 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。 [Ming-v2 系列](https://huggingface.co/collections/inclusionAI/ming-v2)</p></div></div>"""
+                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 id="main-title" style="margin: 0; font-size: 1.8em;">{self.i18n("main_title")}</h1><p id="main-subtitle" style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">{self.i18n("main_subtitle")}</p></div><div id="language-switcher"><span id="lang-label">{self.i18n("language")}/Language: </span></div></div>"""
+                )
+                lang_radio = gr.Radio(
+                    choices=[("English", "en"), ("简体中文", "zh")],
+                    value="zh",
+                    show_label=False,
+                    container=False,
                 )
 
             with gr.Tabs():
                 # 引入 UniAudio V4 MOE 综合演示标签页
                 self.uniaudio_demo_tab.create_tab()
 
-                with gr.Tab("基础能力 (ASR/Edit/TTS)"):
+                with gr.Tab(self.i18n("tab_basic_abilities")):
                     with gr.Row(equal_height=True):
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
-                                gr.Markdown(
-                                    "### 🎤 语音转写（ASR）\n将您上传的音频文件自动转写为文字。",
+                                asr_md = gr.Markdown(
+                                    f"### {self.i18n('asr_title')}\n{self.i18n('asr_description')}",
                                     elem_classes="audio-md",
                                 )
                                 asr_task_id_state = gr.State(None)
@@ -635,11 +656,11 @@ class GradioInterface:
                                 input_audio = gr.Audio(
                                     sources=["upload", "microphone"],
                                     type="filepath",
-                                    label="原始音频",
+                                    label=self.i18n("asr_input_label"),
                                     elem_id="input_audio_player",
                                 )
                                 btn_input = gr.Button(
-                                    "播放音频", elem_id="btn_input_play", variant="secondary"
+                                    self.i18n("asr_play_button"), elem_id="btn_input_play", variant="secondary"
                                 )
                                 btn_input.click(
                                     fn=self.play_audio,
@@ -647,41 +668,41 @@ class GradioInterface:
                                     outputs=[],
                                     js="""() => { const playBtn = document.querySelector('#input_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
                                 )
-                                transcription_box = gr.Textbox(label="识别结果", interactive=False)
+                                transcription_box = gr.Textbox(label=self.i18n("asr_result_label"), interactive=False)
 
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
-                                gr.Markdown(
-                                    "### ✏️ 智能编辑（Editing）\n通过简单的自然语言指令，对音频和文本进行修改。",
+                                edit_md = gr.Markdown(
+                                    f"### {self.i18n('edit_title')}\n{self.i18n('edit_description')}",
                                     elem_classes="audio-md",
                                 )
                                 edit_task_id_state = gr.State(None)
                                 edit_polling_counter = gr.Number(value=0, visible=False)
-                                continuous_edit = gr.Checkbox(label="启用连续编辑")
+                                continuous_edit = gr.Checkbox(label=self.i18n("edit_continuous_label"))
                                 instruction_box = gr.Textbox(
-                                    label="编辑指令", placeholder="例如: '给音频降噪'"
+                                    label=self.i18n("edit_instruction_label"), placeholder=self.i18n("edit_instruction_placeholder")
                                 )
-                                submit_btn = gr.Button("执行编辑", variant="primary")
-                                output_text = gr.Textbox(label="编辑后文本", interactive=False)
+                                submit_btn = gr.Button(self.i18n("edit_execute_button"), variant="primary")
+                                output_text = gr.Textbox(label=self.i18n("edit_text_output_label"), interactive=False)
                                 output_audio = gr.Audio(
-                                    label="编辑后音频",
+                                    label=self.i18n("edit_audio_output_label"),
                                     autoplay=True,
                                     interactive=False,
                                     elem_id="output_audio_player",
                                 )
-                                btn_edit = gr.Button("播放音频", variant="secondary")
+                                btn_edit = gr.Button(self.i18n("asr_play_button"), variant="secondary")
                                 btn_edit.click(
                                     fn=self.play_audio,
                                     inputs=[],
                                     outputs=[],
                                     js="""() => { const playBtn = document.querySelector('#output_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
                                 )
-                                continuous_btn = gr.Button("连续编辑", visible=False)
+                                continuous_btn = gr.Button(self.i18n("edit_continuous_button"), visible=False)
 
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
-                                gr.Markdown(
-                                    "### 🔊 语音合成（TTS）\n上传参考音频，克隆其音色，将任意文本合成为自然的语音。",
+                                tts_md = gr.Markdown(
+                                    f"### {self.i18n('tts_title')}\n{self.i18n('tts_description')}",
                                     elem_classes="audio-md",
                                 )
                                 prompt_asr_task_id_state = gr.State(None)
@@ -689,24 +710,24 @@ class GradioInterface:
                                 task_id_state = gr.State(None)
                                 polling_counter = gr.Number(value=0, visible=False)
                                 prompt_audio = gr.Audio(
-                                    type="filepath", label="参考音频", elem_id="prompt_audio_player"
+                                    type="filepath", label=self.i18n("tts_prompt_audio_label"), elem_id="prompt_audio_player"
                                 )
-                                btn_prompt = gr.Button("播放音频", variant="secondary")
+                                btn_prompt = gr.Button(self.i18n("asr_play_button"), variant="secondary")
                                 btn_prompt.click(
                                     fn=self.play_audio,
                                     inputs=[],
                                     outputs=[],
                                     js="""() => { const playBtn = document.querySelector('#prompt_audio_player [aria-label=\"Play\"]'); if (playBtn) { playBtn.click(); } }""",
                                 )
-                                prompt_text = gr.Textbox(label="参考文本", interactive=False)
+                                prompt_text = gr.Textbox(label=self.i18n("tts_prompt_text_label"), interactive=False)
                                 tts_box = gr.Textbox(
-                                    label="合成文本", placeholder="输入需要合成的文本"
+                                    label=self.i18n("tts_text_label"), placeholder=self.i18n("tts_text_placeholder")
                                 )
-                                tts_btn = gr.Button("合成语音", variant="primary")
+                                tts_btn = gr.Button(self.i18n("tts_button"), variant="primary")
                                 synthesized_audio = gr.Audio(
-                                    label="合成音频", interactive=False, autoplay=True
+                                    label=self.i18n("tts_output_label"), interactive=False, autoplay=True
                                 )
-                                btn_tts = gr.Button("播放音频", variant="secondary")
+                                btn_tts = gr.Button(self.i18n("asr_play_button"), variant="secondary")
                                 btn_tts.click(
                                     fn=self.play_audio,
                                     inputs=[],
@@ -727,7 +748,7 @@ class GradioInterface:
                                     output_audio,
                                 ],
                                 fn=self.process_edit_example,
-                                label="语音编辑示例",
+                                label=self.i18n("examples_edit_label"),
                                 run_on_click=True,
                                 cache_examples="lazy",
                             )
@@ -737,7 +758,7 @@ class GradioInterface:
                                 inputs=[prompt_audio, tts_box],
                                 outputs=[prompt_audio, tts_box],
                                 fn=self.fill_tts_example,
-                                label="语音合成示例",
+                                label=self.i18n("examples_tts_label"),
                                 run_on_click=False,
                                 cache_examples="lazy",
                             )
@@ -800,19 +821,28 @@ class GradioInterface:
                 every=2,
             )
 
-            with gr.Accordion("麦克风权限不工作？点我查看解决方案", open=False):
-                gr.Markdown(
-                    """
-                    如果你在使用 Chrome 浏览器时，麦克风权限无法正常工作，且本应用部署在非 HTTPS 站点上，请尝试以下步骤：
-
-                    1.  在 Chrome 地址栏中输入 `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
-                    2.  将该标志的状态改为 **Enabled**。
-                    3.  在出现的“Enabled domains”或“启用的域名”输入框中，输入本应用的域名。
-                    4.  **重要：** 彻底关闭并重新启动 Chrome 浏览器。
-
-                    完成这些步骤后，你应该就能成功授予该页面麦克风权限了。
-                """
-                )
+            with gr.Accordion(self.i18n("mic_permission_title"), open=False):
+                gr.Markdown(self.i18n("mic_permission_text"))
+            
+            # Language change handler  
+            # Note: Full dynamic language switching requires page reload in current Gradio version
+            # This handler provides basic updates to main content areas
+            def change_language(lang):
+                """Update language and return updated content for key components."""
+                self.i18n.set_language(lang)
+                # Note: uniaudio_demo_tab.i18n is the same object as self.i18n, no need to update separately
+                # Return updates for translatable markdown components
+                return [
+                    gr.update(value=f"### {self.i18n('asr_title')}\n{self.i18n('asr_description')}"),
+                    gr.update(value=f"### {self.i18n('edit_title')}\n{self.i18n('edit_description')}"),
+                    gr.update(value=f"### {self.i18n('tts_title')}\n{self.i18n('tts_description')}"),
+                ]
+            
+            lang_radio.change(
+                fn=change_language,
+                inputs=[lang_radio],
+                outputs=[asr_md, edit_md, tts_md],
+            )
 
         return demo
 

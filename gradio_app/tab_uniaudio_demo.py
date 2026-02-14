@@ -184,77 +184,89 @@ class MingOmniTTSDemoTab:
     """
 
     def __init__(
-        self, webgw_url, webgw_api_key, webgw_app_id, api_project="260203-ming-uniaudio-v4-moe-lite"
+        self, webgw_url, webgw_api_key, webgw_app_id, api_project="260203-ming-uniaudio-v4-moe-lite", i18n=None
     ):
         self.webgw_url = webgw_url
         self.api_key = webgw_api_key
         self.app_id = webgw_app_id
         self.api_project = api_project
+        # Use provided i18n or create a simple passthrough function for fallback
+        if i18n is not None:
+            self.i18n = i18n
+        else:
+            # Simple passthrough when i18n is not available (returns key as-is)
+            self.i18n = lambda key: f"[{key}]"
 
     def create_tab(self):
-        with gr.TabItem("Ming-omni-tts"):
-            gr.Markdown("## Ming-omni-tts 综合能力演示")
+        with gr.TabItem(self.i18n("tab_ming_omni")):
+            gr.Markdown(self.i18n("ming_omni_title"))
 
             with gr.Tabs():
                 # --- Tab 1: 指令TTS ---
-                with gr.TabItem("指令TTS (Instruct TTS)"):
+                with gr.TabItem(self.i18n("instruct_tts_tab")):
                     with gr.Row():
                         with gr.Column(scale=2):
                             i_tts_type = gr.Dropdown(
                                 [
-                                    ("方言 (dialect)", "dialect"),
-                                    ("情感 (emotion)", "emotion"),
-                                    ("IP (IP)", "IP"),
-                                    ("风格 (style)", "style"),
-                                    ("基础 (basic)", "basic")
+                                    (self.i18n("instruct_type_dialect"), "dialect"),
+                                    (self.i18n("instruct_type_emotion"), "emotion"),
+                                    (self.i18n("instruct_type_ip"), "IP"),
+                                    (self.i18n("instruct_type_style"), "style"),
+                                    (self.i18n("instruct_type_basic"), "basic")
                                 ],
-                                label="指令类型",
+                                label=self.i18n("instruct_type_label"),
                                 value="emotion",
                             )
-                            i_tts_text = gr.Textbox(label="合成文本", info="输入要合成的语音文本。")
+                            i_tts_text = gr.Textbox(label=self.i18n("instruct_text_label"), info=self.i18n("instruct_text_info"))
                             i_tts_prompt = gr.Audio(
                                 type="filepath",
-                                label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆基础音色。",
+                                label=self.i18n("instruct_prompt_label"),
                                 sources=["upload", "microphone"],
                             )
 
-                            with gr.Accordion("指令详情 (根据指令类型填写)", open=True):
+                            with gr.Accordion(self.i18n("instruct_details_accordion"), open=True):
                                 i_tts_emotion = gr.Dropdown(
-                                    DROPDOWN_CHOICES["emotions"], label="情感", value="高兴"
+                                    DROPDOWN_CHOICES["emotions"], label=self.i18n("instruct_emotion_label"), value="高兴"
                                 )
                                 i_tts_dialect = gr.Dropdown(
                                     DROPDOWN_CHOICES["dialects"],
-                                    label="方言",
+                                    label=self.i18n("instruct_dialect_label"),
                                     value="广粤话",
                                     visible=False,
                                 )
                                 i_tts_ip = gr.Dropdown(
-                                    list(IP_DICT.keys()), label="IP角色", visible=False
+                                    list(IP_DICT.keys()), label=self.i18n("instruct_ip_label"), visible=False
                                 )
                                 i_tts_style = gr.Textbox(
-                                    label="风格描述",
-                                    info="e.g. 以洪亮有力的音量发声,展示出男性特有的坚韧与威严感。语速偏快,语调从头至尾保持流畅,特别是在结尾词句上略微放慢,增强权威与果决的语气",
+                                    label=self.i18n("instruct_style_label"),
+                                    info=self.i18n("instruct_style_info"),
                                     visible=False,
                                 )
                                 i_tts_speed = gr.Dropdown(
-                                    ["慢速", "中速", "快速"],
-                                    label="语速",
+                                    [(self.i18n("instruct_speed_slow"), "慢速"), (self.i18n("instruct_speed_medium"), "中速"), (self.i18n("instruct_speed_fast"), "快速")],
+                                    label=self.i18n("instruct_speed_label"),
                                     value="中速",
                                     visible=False,
                                 )
                                 i_tts_pitch = gr.Dropdown(
-                                    ["低", "中", "高"], label="基频", value="中", visible=False
+                                    [(self.i18n("instruct_pitch_low"), "低"), (self.i18n("instruct_pitch_medium"), "中"), (self.i18n("instruct_pitch_high"), "高")], 
+                                    label=self.i18n("instruct_pitch_label"), 
+                                    value="中", 
+                                    visible=False
                                 )
                                 i_tts_volume = gr.Dropdown(
-                                    ["低", "中", "高"], label="音量", value="中", visible=False
+                                    [(self.i18n("instruct_volume_low"), "低"), (self.i18n("instruct_volume_medium"), "中"), (self.i18n("instruct_volume_high"), "高")], 
+                                    label=self.i18n("instruct_volume_label"), 
+                                    value="中", 
+                                    visible=False
                                 )
 
-                            i_tts_btn = gr.Button("生成指令语音", variant="primary")
+                            i_tts_btn = gr.Button(self.i18n("instruct_generate_button"), variant="primary")
 
                         with gr.Column(scale=1):
-                            i_tts_status = gr.Markdown(value="💡 请选择指令类型并填写参数。")
+                            i_tts_status = gr.Markdown(value=self.i18n("instruct_status_default"))
                             i_tts_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                                label=self.i18n("instruct_output_label"), type="filepath", interactive=False
                             )
 
                     def update_details_visibility(instruct_type):
@@ -286,83 +298,83 @@ class MingOmniTTSDemoTab:
                     )
 
                 # --- Tab 2: 零样本TTS (音色克隆) ---
-                with gr.TabItem("音色克隆 (Zero-shot TTS)"):
+                with gr.TabItem(self.i18n("zeroshot_tts_tab")):
                     with gr.Row():
                         with gr.Column(scale=2):
                             zs_tts_text = gr.Textbox(
-                                label="目标文本", info="输入您想合成的语音文本。"
+                                label=self.i18n("zeroshot_text_label"), info=self.i18n("zeroshot_text_info")
                             )
                             zs_tts_prompt = gr.Audio(
                                 type="filepath",
-                                label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆音色。",
+                                label=self.i18n("zeroshot_prompt_label"),
                                 sources=["upload", "microphone"],
                             )
-                            zs_tts_btn = gr.Button("克隆并生成语音", variant="primary")
+                            zs_tts_btn = gr.Button(self.i18n("zeroshot_button"), variant="primary")
                         with gr.Column(scale=1):
-                            zs_tts_status = gr.Markdown(value="💡 请输入文本并上传参考音频。")
+                            zs_tts_status = gr.Markdown(value=self.i18n("zeroshot_status_default"))
                             zs_tts_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                                label=self.i18n("zeroshot_output_label"), type="filepath", interactive=False
                             )
 
                 # --- Tab 3: 多人播客 ---
-                with gr.TabItem("播客 (Podcast)"):
+                with gr.TabItem(self.i18n("podcast_tab")):
                     with gr.Row():
                         with gr.Column(scale=2):
                             pod_text = gr.Textbox(
                                 lines=5,
-                                label="对话脚本",
-                                info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人。e.g. speaker_1:就比如说各种就是给别人提供，提供帮助的都可以说是服务的\n speaker_2:是的 不管是什么，就是说感觉都是，大家都，都可以说是服务业的一方面\n",
+                                label=self.i18n("podcast_script_label"),
+                                info=self.i18n("podcast_script_info"),
                             )
                             pod_prompt1 = gr.Audio(
                                 type="filepath",
-                                label="说话人1参考音频",
+                                label=self.i18n("podcast_prompt1_label"),
                                 sources=["upload", "microphone"],
                             )
                             pod_prompt2 = gr.Audio(
                                 type="filepath",
-                                label="说话人2参考音频",
+                                label=self.i18n("podcast_prompt2_label"),
                                 sources=["upload", "microphone"],
                             )
-                            pod_btn = gr.Button("生成播客", variant="primary")
+                            pod_btn = gr.Button(self.i18n("podcast_button"), variant="primary")
                         with gr.Column(scale=1):
                             pod_status = gr.Markdown(
-                                value="💡 请填写脚本并上传两位说话人的参考音频。"
+                                value=self.i18n("podcast_status_default")
                             )
                             pod_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                                label=self.i18n("podcast_output_label"), type="filepath", interactive=False
                             )
 
                 # --- Tab 4: 带背景音乐的语音 ---
-                with gr.TabItem("带背景音乐的语音 (Speech with BGM)"):
+                with gr.TabItem(self.i18n("swb_tab")):
                     with gr.Row():
                         with gr.Column(scale=2):
-                            swb_text = gr.Textbox(label="语音文本")
+                            swb_text = gr.Textbox(label=self.i18n("swb_text_label"))
                             swb_prompt = gr.Audio(
                                 type="filepath",
-                                label="说话人参考音频",
+                                label=self.i18n("swb_prompt_label"),
                                 sources=["upload", "microphone"],
                             )
-                            gr.Markdown("##### 背景音乐描述")
+                            gr.Markdown(f"##### {self.i18n('swb_bgm_title')}")
                             with gr.Row():
                                 swb_genre = gr.Dropdown(
                                     DROPDOWN_CHOICES["swb_genres"],
-                                    label="风格 (Genre)",
+                                    label=self.i18n("swb_genre_label"),
                                     value="流行摇滚",
                                 )
                                 swb_mood = gr.Dropdown(
                                     DROPDOWN_CHOICES["swb_moods"],
-                                    label="情绪 (Mood)",
+                                    label=self.i18n("swb_mood_label"),
                                     value="快乐",
                                 )
                             with gr.Row():
                                 swb_instrument = gr.Dropdown(
                                     DROPDOWN_CHOICES["swb_instruments"],
-                                    label="乐器 (Instrument)",
+                                    label=self.i18n("swb_instrument_label"),
                                     value="合成铜管乐器",
                                 )
                                 swb_theme = gr.Dropdown(
                                     DROPDOWN_CHOICES["swb_themes"],
-                                    label="主题 (Theme)",
+                                    label=self.i18n("swb_theme_label"),
                                     value="旅行",
                                 )
                             with gr.Row():
@@ -374,58 +386,58 @@ class MingOmniTTSDemoTab:
                                     label="信噪比 (SNR)",
                                     info="值越小，背景音乐音量越大。",
                                 )
-                            swb_btn = gr.Button("生成带BGM的语音", variant="primary")
+                            swb_btn = gr.Button(self.i18n("swb_button"), variant="primary")
                         with gr.Column(scale=1):
-                            swb_status = gr.Markdown(value="💡 请填写所有字段并上传参考音频。")
+                            swb_status = gr.Markdown(value=self.i18n("swb_status_default"))
                             swb_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                                label=self.i18n("swb_output_label"), type="filepath", interactive=False
                             )
 
                 # --- Tab 5: 纯背景音乐生成 ---
-                with gr.TabItem("背景音乐生成 (BGM)"):
+                with gr.TabItem(self.i18n("bgm_tab")):
                     with gr.Row():
                         with gr.Column(scale=2):
                             bgm_genre = gr.Dropdown(
                                 DROPDOWN_CHOICES["bgm_genres"],
-                                label="风格 (Genre)",
+                                label=self.i18n("bgm_genre_label"),
                                 value="迪斯科",
                             )
                             bgm_mood = gr.Dropdown(
                                 DROPDOWN_CHOICES["bgm_moods"],
-                                label="情绪 (Mood)",
+                                label=self.i18n("bgm_mood_label"),
                                 value="快乐",
                             )
                             bgm_instrument = gr.Dropdown(
                                 DROPDOWN_CHOICES["bgm_instruments"],
-                                label="乐器 (Instrument)",
+                                label=self.i18n("bgm_instrument_label"),
                                 value="电吉他",
                             )
                             bgm_theme = gr.Dropdown(
                                 DROPDOWN_CHOICES["bgm_themes"],
-                                label="主题 (Theme)",
+                                label=self.i18n("bgm_theme_label"),
                                 value="庆典与喜悦",
                             )
-                            bgm_duration = gr.Slider(30, 60, value=35, step=1, label="时长 (秒)")
-                            bgm_btn = gr.Button("生成背景音乐", variant="primary")
+                            bgm_duration = gr.Slider(30, 60, value=35, step=1, label=self.i18n("bgm_duration_label"))
+                            bgm_btn = gr.Button(self.i18n("bgm_button"), variant="primary")
                         with gr.Column(scale=1):
-                            bgm_status = gr.Markdown(value="💡 请描述您想要的音乐。")
+                            bgm_status = gr.Markdown(value=self.i18n("bgm_status_default"))
                             bgm_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                                label=self.i18n("bgm_output_label"), type="filepath", interactive=False
                             )
 
                 # --- Tab 6: 音效生成 ---
-                with gr.TabItem("音效生成 (TTA)"):
+                with gr.TabItem(self.i18n("tta_tab")):
                     with gr.Row():
                         with gr.Column(scale=2):
                             tta_text = gr.Textbox(
-                                label="音效描述",
-                                info="建议使用英文描述，效果更佳。例如: 'Rain is falling continuously'。",
+                                label=self.i18n("tta_text_label"),
+                                info=self.i18n("tta_text_info"),
                             )
-                            tta_btn = gr.Button("生成音效", variant="primary")
+                            tta_btn = gr.Button(self.i18n("tta_button"), variant="primary")
                         with gr.Column(scale=1):
-                            tta_status = gr.Markdown(value="💡 请输入音效的文本描述。")
+                            tta_status = gr.Markdown(value=self.i18n("tta_status_default"))
                             tta_output = gr.Audio(
-                                label="生成结果", type="filepath", interactive=False
+                                label=self.i18n("tta_output_label"), type="filepath", interactive=False
                             )
 
             # --- 事件绑定 ---
