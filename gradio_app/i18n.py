@@ -258,7 +258,7 @@ After completing these steps, you should be able to successfully grant microphon
         "swb_tab": "带背景音乐的语音 (Speech with BGM)",
         "swb_text_label": "语音文本",
         "swb_prompt_label": "说话人参考音频",
-        "swb_bgm_title": "##### 背景音乐描述",
+        "swb_bgm_title": "背景音乐描述",
         "swb_genre_label": "风格 (Genre)",
         "swb_mood_label": "情绪 (Mood)",
         "swb_instrument_label": "乐器 (Instrument)",
@@ -269,7 +269,7 @@ After completing these steps, you should be able to successfully grant microphon
         
         # Pure BGM
         "bgm_tab": "背景音乐 (BGM Generation)",
-        "bgm_title": "##### 背景音乐描述",
+        "bgm_title": "背景音乐描述",
         "bgm_genre_label": "风格 (Genre)",
         "bgm_mood_label": "情绪 (Mood)",
         "bgm_instrument_label": "乐器 (Instrument)",

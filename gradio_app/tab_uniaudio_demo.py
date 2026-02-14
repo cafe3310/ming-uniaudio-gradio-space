@@ -190,7 +190,12 @@ class MingOmniTTSDemoTab:
         self.api_key = webgw_api_key
         self.app_id = webgw_app_id
         self.api_project = api_project
-        self.i18n = i18n if i18n is not None else lambda x: x
+        # Use provided i18n or create a simple passthrough function for fallback
+        if i18n is not None:
+            self.i18n = i18n
+        else:
+            # Simple passthrough when i18n is not available (returns key as-is)
+            self.i18n = lambda key: f"[{key}]"
 
     def create_tab(self):
         with gr.TabItem(self.i18n("tab_ming_omni")):
@@ -349,7 +354,7 @@ class MingOmniTTSDemoTab:
                                 label=self.i18n("swb_prompt_label"),
                                 sources=["upload", "microphone"],
                             )
-                            gr.Markdown(self.i18n("swb_bgm_title"))
+                            gr.Markdown(f"##### {self.i18n('swb_bgm_title')}")
                             with gr.Row():
                                 swb_genre = gr.Dropdown(
                                     DROPDOWN_CHOICES["swb_genres"],

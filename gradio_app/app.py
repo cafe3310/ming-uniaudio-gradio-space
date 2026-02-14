@@ -632,13 +632,12 @@ class GradioInterface:
                 gr.HTML(
                     f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 id="main-title" style="margin: 0; font-size: 1.8em;">{self.i18n("main_title")}</h1><p id="main-subtitle" style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">{self.i18n("main_subtitle")}</p></div><div id="language-switcher"><span id="lang-label">{self.i18n("language")}/Language: </span></div></div>"""
                 )
-                with gr.Row(elem_id="language-switcher", variant="compact"):
-                    lang_radio = gr.Radio(
-                        choices=[("English", "en"), ("简体中文", "zh")],
-                        value="zh",
-                        show_label=False,
-                        container=False,
-                    )
+                lang_radio = gr.Radio(
+                    choices=[("English", "en"), ("简体中文", "zh")],
+                    value="zh",
+                    show_label=False,
+                    container=False,
+                )
 
             with gr.Tabs():
                 # 引入 UniAudio V4 MOE 综合演示标签页
@@ -831,7 +830,7 @@ class GradioInterface:
             def change_language(lang):
                 """Update language and return updated content for key components."""
                 self.i18n.set_language(lang)
-                self.uniaudio_demo_tab.i18n.set_language(lang)
+                # Note: uniaudio_demo_tab.i18n is the same object as self.i18n, no need to update separately
                 # Return updates for translatable markdown components
                 return [
                     gr.update(value=f"### {self.i18n('asr_title')}\n{self.i18n('asr_description')}"),
