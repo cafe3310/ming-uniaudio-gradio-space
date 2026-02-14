@@ -824,6 +824,26 @@ class GradioInterface:
 
             with gr.Accordion(self.i18n("mic_permission_title"), open=False):
                 gr.Markdown(self.i18n("mic_permission_text"))
+            
+            # Language change handler  
+            # Note: Full dynamic language switching requires page reload in current Gradio version
+            # This handler provides basic updates to main content areas
+            def change_language(lang):
+                """Update language and return updated content for key components."""
+                self.i18n.set_language(lang)
+                self.uniaudio_demo_tab.i18n.set_language(lang)
+                # Return updates for translatable markdown components
+                return [
+                    gr.update(value=f"### {self.i18n('asr_title')}\n{self.i18n('asr_description')}"),
+                    gr.update(value=f"### {self.i18n('edit_title')}\n{self.i18n('edit_description')}"),
+                    gr.update(value=f"### {self.i18n('tts_title')}\n{self.i18n('tts_description')}"),
+                ]
+            
+            lang_radio.change(
+                fn=change_language,
+                inputs=[lang_radio],
+                outputs=[asr_md, edit_md, tts_md],
+            )
 
         return demo
 
