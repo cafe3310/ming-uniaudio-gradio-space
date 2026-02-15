@@ -58,6 +58,49 @@ jobs:
             git push origin main --force
           fi
 
+  sync-to-huggingface-en:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Sync to Hugging Face EN Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: cafe3310
+          SPACE_NAME_EN: ming-uniaudio-demo-en
+          SOURCE_DIR: gradio_app_en
+        run: |
+          echo "Cloning Hugging Face EN Space..."
+          rm -rf /tmp/hf-space-en
+          git clone https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME_EN /tmp/hf-space-en
+          
+          echo "Syncing files..."
+          rsync -av --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            $SOURCE_DIR/ /tmp/hf-space-en/
+          
+          cp .gitattributes /tmp/hf-space-en/
+          mv /tmp/hf-space-en/huggingface_readme.md /tmp/hf-space-en/README.md
+          rm -f /tmp/hf-space-en/modelscope_readme.md
+            
+          cd /tmp/hf-space-en
+          git lfs install
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sync from GitHub (EN): $(git rev-parse --short HEAD)"
+            git push origin main --force
+          fi
+
   sync-to-modelscope:
     runs-on: ubuntu-latest
     steps:
