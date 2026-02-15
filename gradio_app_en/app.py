@@ -615,7 +615,7 @@ class GradioInterface:
 
             with gr.Row(variant="panel", elem_id="header-row"):
                 gr.HTML(
-                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">Bailing Series Ming-omni-tts Voice Model Demo</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">One-stop Speech Recognition, Speech Editing, and Speech Synthesis. [Ming-v2 Series](https://huggingface.co/collections/inclusionAI/ming-v2)</p></div></div>"""
+                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">Bailing Series Ming-omni-tts Voice Model Demo</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">One-stop Speech Recognition, Speech Editing, and Speech Synthesis. <a href="https://huggingface.co/collections/inclusionAI/ming-v2" target="_blank" style="color: #2b7fff; text-decoration: none;">[Ming-v2 Series]</a></p></div></div>"""
                 )
 
             with gr.Tabs():
