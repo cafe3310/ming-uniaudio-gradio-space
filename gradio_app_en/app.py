@@ -566,7 +566,7 @@ class GradioInterface:
                 border: 1px solid #e0e0e0;  /* Flat style border */
                 border-radius: 4px;         /* Slightly rounded */
                 padding: 16px;
-                background-color: #ffffff;  /* Clean white background */
+                background-color: transparent; /* Adapt to dark mode */
                 box-shadow: none;           /* Remove shadow for flat style */
                 display: flex;
                 flex-direction: column;
@@ -574,7 +574,7 @@ class GradioInterface:
                 gap: 10px;
             }
             .audio-md {
-                background: white !important;
+                background: transparent !important; /* Adapt to dark mode */
                 border: unset !important;
                 padding-bottom: 10px;
             }

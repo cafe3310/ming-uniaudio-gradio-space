@@ -563,18 +563,18 @@ class GradioInterface:
             .equal-height-group {
                 height: 100%;
                 min-height: 400px;          /* 最小高度 */
-                border: 1px solid #e0e0e0;  /* 扁平风格边框 */
-                border-radius: 4px;         /* 略微圆角 */
+                border: 1px solid #e0e0e0;  /* 扁平化边框 */
+                border-radius: 4px;         /* 轻微圆角 */
                 padding: 16px;
-                background-color: #ffffff;  /* 干净的白色背景 */
-                box-shadow: none;           /* 移除阴影以符合扁平风格 */
+                background-color: transparent; /* 适配深色模式 */
+                box-shadow: none;           /* 去掉阴影，保持扁平风格 */
                 display: flex;
                 flex-direction: column;
-                justify-content: space-between; /* 内容上下分布更整齐 */
+                justify-content: space-between; /* 整齐分布 */
                 gap: 10px;
             }
             .audio-md {
-                background: white !important;
+                background: transparent !important; /* 适配深色模式 */
                 border: unset !important;
                 padding-bottom: 10px;
             }
