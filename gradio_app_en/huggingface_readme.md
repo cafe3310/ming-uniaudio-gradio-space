@@ -19,7 +19,7 @@ models:
 
 # Ming UniAudio Demo
 
-Ling LLM 系列 Ming-omni-tts 音频模型的演示应用。
+Demo application for the Ming-omni-tts audio models from the Ling LLM series.
 
 This is a Gradio-based demo for the Ming UniAudio model.
 

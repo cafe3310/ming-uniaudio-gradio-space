@@ -9,121 +9,119 @@ class AudioInstructTab:
         self.prompt_audio_path_example = "audio/00000309-00000300.wav"
 
     def create_tab(self):
-        with gr.TabItem("可控 TTS (Audio Instruct)"):
-            gr.Markdown("## 可控语音合成演示")
+        with gr.TabItem("Controllable TTS (Audio Instruct)"):
+            gr.Markdown("## Controllable Speech Synthesis Demo")
 
             with gr.Tabs() as sub_tabs:
-                # --- Tab 1: 结构化模式 ---
-                with gr.TabItem("结构化模式"):
+                # --- Tab 1: Structured Mode ---
+                with gr.TabItem("Structured Mode"):
                     with gr.Row():
                         with gr.Column(scale=1):
                             instruct_type = gr.Radio(
                                 [
-                                    ("基础 (basic)", "basic"),
-                                    ("方言 (dialect)", "dialect"),
-                                    ("情感 (emotion)", "emotion"),
-                                    ("IP (IP)", "IP"),
-                                    ("风格 (style)", "style")
+                                    ("Basic", "basic"),
+                                    ("Dialect", "dialect"),
+                                    ("Emotion", "emotion"),
+                                    ("IP", "IP"),
+                                    ("Style", "style")
                                 ],
-                                label="指令类型",
+                                label="Instruction Type",
                                 value="emotion"
                             )
-                            text_input = gr.Textbox(label="输入文本")
-                            prompt_audio = gr.Audio(type="filepath", label="参考音频")
-                            speaker_id = gr.Textbox(label="说话人ID", value="speaker_1")
+                            text_input = gr.Textbox(label="Input Text")
+                            prompt_audio = gr.Audio(type="filepath", label="Reference Audio")
+                            speaker_id = gr.Textbox(label="Speaker ID", value="speaker_1")
 
-                            # 动态显示的控件组
+                            # Dynamic UI Groups
                             with gr.Group(visible=False) as basic_controls:
-                                pitch_radio = gr.Radio(["低", "中", "高"], label="基频", value="中")
-                                volume_radio = gr.Radio(["低", "中", "高"], label="音量", value="中")
-                                speed_radio = gr.Radio(["慢速", "中速", "快速"], label="语速", value="中速")
+                                pitch_radio = gr.Radio([("Low", "低"), ("Medium", "中"), ("High", "高")], label="Pitch", value="中")
+                                volume_radio = gr.Radio([("Low", "低"), ("Medium", "中"), ("High", "高")], label="Volume", value="中")
+                                speed_radio = gr.Radio([("Slow", "慢速"), ("Medium", "中速"), ("Fast", "快速")], label="Speed", value="中速")
 
                             with gr.Group(visible=False) as dialect_controls:
-                                dialect_input = gr.Textbox(label="方言")
+                                dialect_input = gr.Textbox(label="Dialect")
                             with gr.Group(visible=True) as emotion_controls:
-                                emotion_input = gr.Textbox(label="情感")
+                                emotion_input = gr.Textbox(label="Emotion")
                             with gr.Group(visible=False) as ip_controls:
-                                ip_character_input = gr.Textbox(label="IP角色")
-                                album_input = gr.Textbox(label="所属剧名", placeholder="可选")
+                                ip_character_input = gr.Textbox(label="IP Character")
+                                album_input = gr.Textbox(label="Album/Show Title", placeholder="Optional")
                             with gr.Group(visible=False) as style_controls:
-                                style_input = gr.Textbox(label="风格")
-
-                            seed = gr.Number(value=1234, label="随机种子", precision=0)
-
-                            # 示例列表 (Adapting examples from input)
-                            # Note: Path adjustment needed for real environment
+                                style_input = gr.Textbox(label="Style")
+    
+                            seed = gr.Number(value=1234, label="Random Seed", precision=0)
+    
+                            # Examples list
                             examples_data = [
-                                # Gradio 的坑：如果某列全部都是 None, 将会在 inputs 中缺失该列，导致绑定错误
-                                ["basic", "这是一个高音调、高音量的快速语音示例。", self.prompt_audio_path_example, "speaker_1", "高", "高", "快速", None, None, None, None, None, 1234],
-                                ["basic", "这是一个低音调、低音量的慢速语音示例。", self.prompt_audio_path_example, "speaker_1", "低", "低", "慢速", None, None, None, None, None, 5678],
-                                ["dialect", "其实好多广州小学幼稚园都系噉样", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", "广粤话", None, None, None, None, 1234],
-                                ["dialect", "那你们有啥子喜欢看的电视剧吗？", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", "川渝话", None, None, None, None, 5678],
-                                ["emotion", "我今天非常开心，阳光明媚！", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", None, "高兴", None, None, None, 1234],
-                                ["emotion", "这个消息太令人难过了。", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", None, "悲伤", None, None, None, 5678],
-                                ["IP", "四个兄弟互相一商量，说道，我们的机会来了，让我们各展所能吧。", None, "speaker_1", "中", "中", "中速", None, None, "四郎", "甄嬛传", None, 1234],
-                                ["IP", "也只有到村也只有到过村口的小动物，才知道村口有一家大熊拉面馆。", None, "speaker_1", "中", "中", "中速", None, None, "野原新之助 (小新)", "蜡笔小新", None, 5678],
-                                ["style", "号召更多渴望突破自我的年轻力量，加入到敢于突破破界的队伍中来", None, "speaker_1", "中", "中", "中速", None, None, None, "一位女性以柔和、缓慢且富有情感的方式讲述一个深刻而悲伤的故事，营造出沉思和略带忧郁的氛围。", None, 1234],
-                                ["style", "你现在马上把全套再复印一份，给我的司机武大", None, "speaker_1", "中", "中", "中速", None, None, None, "一位年幼男孩用缓慢清晰但略显模糊的语调，富有表现力地讲述故事，语调带有唱歌般的韵律。", None, 5678],
-                                ["basic", "", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", '', '', '', '', '', 0], # 这一行用于填充可能为空的列
-                            ]
-
+                                ["basic", "This is a fast speech example with high pitch and high volume.", self.prompt_audio_path_example, "speaker_1", "高", "高", "快速", None, None, None, None, None, 1234],
+                                ["basic", "This is a slow speech example with low pitch and low volume.", self.prompt_audio_path_example, "speaker_1", "低", "低", "慢速", None, None, None, None, None, 5678],
+                                ["dialect", "Actually many Guangzhou primary school and kindergartens are like this.", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", "广粤话", None, None, None, None, 1234],
+                                ["dialect", "So do you guys have any TV shows you like to watch?", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", "川渝话", None, None, None, None, 5678],
+                                ["emotion", "I'm so happy today, the sun is shining!", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", None, "高兴", None, None, None, 1234],
+                                ["emotion", "This news is so sad.", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", None, "悲伤", None, None, None, 5678],
+                                ["IP", "The four brothers discussed among themselves and said, 'Our chance has come, let's show our skills.'", None, "speaker_1", "中", "中", "中速", None, None, "四郎", "甄嬛传", None, 1234],
+                                ["IP", "Only the little animals who have been to the village entrance know that there is a Great Bear Ramen shop there.", None, "speaker_1", "中", "中", "中速", None, None, "野原新之助 (小新)", "蜡笔小新", None, 5678],
+                                ["style", "Calling for more young people eager to break through themselves to join the ranks of those who dare to cross boundaries.", None, "speaker_1", "中", "中", "中速", None, None, None, "A woman tells a deep and sad story in a soft, slow, and emotional way, creating a contemplative and slightly melancholic atmosphere.", None, 1234],
+                                ["style", "Now you go and make a full copy of the set and give it to my driver Wu Da.", None, "speaker_1", "中", "中", "中速", None, None, None, "A young boy tells a story in a slow, clear but slightly blurred tone, very expressive, with a singing-like rhythm.", None, 5678],
+                                ["basic", "", self.prompt_audio_path_example, "speaker_1", "中", "中", "中速", '', '', '', '', '', 0],
+                                ]
+    
                             structured_param_inputs = [
                                 speaker_id, pitch_radio, volume_radio, speed_radio,
                                 dialect_input, emotion_input, ip_character_input,
                                 style_input, album_input
                             ]
 
-                            # 保存引用以供事件绑定使用
+                            # Save reference for event binding
                             self.examples_component = gr.Examples(
                                 examples=examples_data,
                                 inputs=[instruct_type, text_input, prompt_audio] + structured_param_inputs + [seed],
-                                label="点击示例以填充输入",
+                                label="Click an example to fill inputs",
                                 cache_examples="lazy"
                             )
 
-                            generate_btn = gr.Button("生成音频", variant="primary")
+                            generate_btn = gr.Button("Generate Audio", variant="primary")
 
                         with gr.Column(scale=1):
-                            audio_output = gr.Audio(label="合成结果", interactive=False)
-                            # 状态和轮询组件
+                            audio_output = gr.Audio(label="Result", interactive=False)
+                            # Status and polling components
                             task_id_state = gr.State(None)
                             polling_counter = gr.Number(value=0, visible=False)
                             status_msg = gr.Markdown("")
 
-                # --- Tab 2: 自由输入模式 ---
-                with gr.TabItem("自由输入模式"):
+                # --- Tab 2: Expert Mode ---
+                with gr.TabItem("Expert Mode"):
                     with gr.Row():
                         with gr.Column(scale=1):
-                            gr.Markdown("在此模式下, 您可以组合所有参数进行合成。")
-                            expert_text = gr.Textbox(label="输入文本")
-                            expert_prompt_audio = gr.Audio(type="filepath", label="参考音频 (IP/风格模式下可选)")
-                            expert_speaker_id = gr.Textbox(label="说话人ID", value="speaker_1")
-                            expert_pitch = gr.Radio(["低", "中", "高"], label="基频", value="中")
-                            expert_volume = gr.Radio(["低", "中", "高"], label="音量", value="中")
-                            expert_speed = gr.Radio(["慢速", "中速", "快速"], label="语速", value="中速")
-                            expert_dialect = gr.Textbox(label="方言")
-                            expert_emotion = gr.Textbox(label="情感")
-                            expert_ip_character = gr.Textbox(label="IP角色")
-                            expert_album = gr.Textbox(label="所属剧名", placeholder="可选")
-                            expert_style = gr.Textbox(label="风格")
-                            expert_seed = gr.Number(value=1234, label="随机种子", precision=0)
-                            expert_generate_btn = gr.Button("生成音频", variant="primary")
+                            gr.Markdown("In this mode, you can combine all parameters for synthesis.")
+                            expert_text = gr.Textbox(label="Input Text")
+                            expert_prompt_audio = gr.Audio(type="filepath", label="Reference Audio (Optional for IP/Style mode)")
+                            expert_speaker_id = gr.Textbox(label="Speaker ID", value="speaker_1")
+                            expert_pitch = gr.Radio([("Low", "低"), ("Medium", "中"), ("High", "高")], label="Pitch", value="中")
+                            expert_volume = gr.Radio([("Low", "低"), ("Medium", "中"), ("High", "高")], label="Volume", value="中")
+                            expert_speed = gr.Radio([("Slow", "慢速"), ("Medium", "中速"), ("Fast", "快速")], label="Speed", value="中速")
+                            expert_dialect = gr.Textbox(label="Dialect")
+                            expert_emotion = gr.Textbox(label="Emotion")
+                            expert_ip_character = gr.Textbox(label="IP Character")
+                            expert_album = gr.Textbox(label="Album/Show Title", placeholder="Optional")
+                            expert_style = gr.Textbox(label="Style")
+                            expert_seed = gr.Number(value=1234, label="Random Seed", precision=0)
+                            expert_generate_btn = gr.Button("Generate Audio", variant="primary")
                         with gr.Column(scale=1):
-                            expert_audio_output = gr.Audio(label="合成结果", interactive=False)
+                            expert_audio_output = gr.Audio(label="Result", interactive=False)
                             expert_task_id_state = gr.State(None)
                             expert_polling_counter = gr.Number(value=0, visible=False)
                             expert_status_msg = gr.Markdown("")
 
-                # --- Tab 3: JSON 输入模式 ---
-                with gr.TabItem("JSON 输入模式"):
+                # --- Tab 3: JSON Input Mode ---
+                with gr.TabItem("JSON Mode"):
                     with gr.Row():
                         with gr.Column(scale=1):
-                            json_input = gr.Textbox(lines=15, label="JSON 输入", placeholder='请在此输入JSON...')
-                            free_prompt_audio = gr.Audio(type="filepath", label="参考音频")
-                            free_seed = gr.Number(value=1234, label="随机种子", precision=0)
-                            free_generate_btn = gr.Button("生成音频", variant="primary")
+                            json_input = gr.Textbox(lines=15, label="JSON Input", placeholder='Enter JSON here...')
+                            free_prompt_audio = gr.Audio(type="filepath", label="Reference Audio")
+                            free_seed = gr.Number(value=1234, label="Random Seed", precision=0)
+                            free_generate_btn = gr.Button("Generate Audio", variant="primary")
                         with gr.Column(scale=1):
-                            free_audio_output = gr.Audio(label="合成结果", interactive=False)
+                            free_audio_output = gr.Audio(label="Result", interactive=False)
                             free_task_id_state = gr.State(None)
                             free_polling_counter = gr.Number(value=0, visible=False)
                             free_status_msg = gr.Markdown("")
@@ -197,12 +195,12 @@ class AudioInstructTab:
             )
 
     def update_ui_visibility(self, instruct_type):
-        """根据指令类型更新 UI 控件的可见性"""
+        """Update visibility of UI controls based on instruction type"""
         # Gradio Radio with tuples passes the 'value' to the function
         if instruct_type in ["IP", "style"]:
-            new_audio_label = "参考音频 (在此模式下可选/不起作用)"
+            new_audio_label = "Reference Audio (Optional/Disabled in this mode)"
         else:
-            new_audio_label = "参考音频 (Prompt Audio)"
+            new_audio_label = "Reference Audio (Prompt Audio)"
 
         # 打个日志
         logger.info(f"Updating UI visibility for instruct_type: {instruct_type}")
@@ -219,7 +217,7 @@ class AudioInstructTab:
 
     def _construct_caption(self, instruct_type, speaker_id, pitch, volume, speed,
                          dialect, emotion, ip_character, style, album):
-        """构建 caption 字典"""
+        """Construct caption dictionary"""
 
         logger.info(f"Constructing caption for instruct_type: {instruct_type}")
 
@@ -241,7 +239,7 @@ class AudioInstructTab:
                 }]
             }
 
-        # 结构化模式
+        # Structured mode
         if instruct_type == "basic":
             base_caption.update({"基频": pitch, "音量": volume, "语速": speed})
         elif instruct_type == "dialect":
@@ -256,10 +254,7 @@ class AudioInstructTab:
         return {"audio_sequence": [base_caption]}
 
     def _submit_task(self, payload):
-        """
-        内部任务提交方法。
-        调用 SpeechService 的 submit_instruct_task 方法。
-        """
+        """Internal task submission method"""
         logger.info(f"AudioInstructTab submitting task with payload: {payload}")
 
         # 调用 SpeechService 的新接口
@@ -267,11 +262,7 @@ class AudioInstructTab:
         return self.service.submit_instruct_task(payload)
 
     def _check_task(self, task_id):
-        """
-        内部任务状态检查方法。
-        调用 SpeechService 的 poll_instruct_task 方法。
-        """
-
+        """Internal task status check method"""
         logger.info(f"AudioInstructTab checking task status for task_id: {task_id}")
 
         return self.service.poll_instruct_task(task_id)
@@ -279,14 +270,14 @@ class AudioInstructTab:
     def submit_structured_task(self, instruct_type, text, prompt_audio,
                              speaker_id, pitch, volume, speed, dialect, emotion,
                              ip_character, style, album, seed):
-        """提交结构化任务"""
+        """Submit structured task"""
         logger.info(f"Submitting structured task: type={instruct_type}, text={text}")
         if not text:
-            return None, 0, "错误: 请输入文本", None
+            return None, 0, "Error: Please enter text", None
 
-        # 校验: 非 IP/Style 模式必须提供参考音频
+        # Validation: Non IP/Style modes must provide reference audio
         if not prompt_audio and instruct_type not in ["IP", "style"]:
-            return None, 0, "错误: 此模式需要上传参考音频以提取音色", None
+            return None, 0, "Error: This mode requires reference audio for timbre cloning", None
 
         caption = self._construct_caption(instruct_type, speaker_id, pitch, volume, speed,
                                         dialect, emotion, ip_character, style, album)
@@ -301,15 +292,15 @@ class AudioInstructTab:
         # 调用内部提交方法
         task_id = self._submit_task(payload)
 
-        if task_id.startswith("错误"):
+        if task_id.startswith("错误") or task_id.startswith("Error"):
             return None, 0, task_id, None
 
-        return task_id, 1, f"任务已提交 (ID: ...{task_id[-6:]})", None
+        return task_id, 1, f"Task submitted (ID: ...{task_id[-6:]})", None
 
     def submit_expert_task(self, text, prompt_audio,
                          speaker_id, pitch, volume, speed, dialect, emotion,
                          ip_character, style, album, seed):
-        """提交专家模式任务"""
+        """Submit expert mode task"""
 
         logger.info(f"Submitting expert task with text: {text}")
 
@@ -318,12 +309,12 @@ class AudioInstructTab:
                                          ip_character, style, album, seed)
 
     def submit_json_task(self, json_str, prompt_audio, seed):
-        """提交 JSON 模式任务"""
+        """Submit JSON mode task"""
 
         logger.info(f"Submitting JSON task with input: {json_str}")
 
         if not json_str or not json_str.strip():
-            return None, 0, "错误: 请输入 JSON", None
+            return None, 0, "Error: Please enter JSON", None
 
         try:
             data = json.loads(json_str)
@@ -338,7 +329,7 @@ class AudioInstructTab:
             caption_dict = data.get("caption")
 
             if text is None or caption_dict is None:
-                 return None, 0, "错误: JSON 中必须包含 'text' 和 'caption' 字段", None
+                 return None, 0, "Error: JSON must contain 'text' and 'caption' fields", None
 
             # 检查是否包含 IP 或 风格，如果包含则无需 prompt_audio
             is_ip_or_style = False
@@ -349,10 +340,10 @@ class AudioInstructTab:
                     is_ip_or_style = True
 
             if not prompt_audio and not is_ip_or_style:
-                return None, 0, "错误: 此模式需要上传参考音频 (除非指定了影视IP or 风格)", None
+                return None, 0, "Error: This mode requires reference audio (unless IP or style is specified)", None
 
         except (json.JSONDecodeError, TypeError) as e:
-            return None, 0, f"错误: JSON 格式无效或处理失败: {e}", None
+            return None, 0, f"Error: Invalid JSON format or processing failed: {e}", None
 
         payload = {
             "text": text,
@@ -363,13 +354,13 @@ class AudioInstructTab:
 
         task_id = self._submit_task(payload)
 
-        if task_id.startswith("错误"):
+        if task_id.startswith("错误") or task_id.startswith("Error"):
             return None, 0, task_id, None
 
-        return task_id, 1, f"任务已提交 (ID: ...{task_id[-6:]})", None
+        return task_id, 1, f"Task submitted (ID: ...{task_id[-6:]})", None
 
     def check_task_status(self, task_id, polling_counter):
-        """检查任务状态"""
+        """Check task status"""
 
         # 如果没有任务ID或者轮询计数器归零（任务已结束），则停止轮询逻辑
         if not task_id or polling_counter == 0:
@@ -382,8 +373,8 @@ class AudioInstructTab:
 
         if status == "pending":
             elapsed = polling_counter * 2
-            return gr.update(), polling_counter + 1, f"合成中... ({elapsed}s)"
+            return gr.update(), polling_counter + 1, f"Synthesizing... ({elapsed}s)"
         elif status == "done" or status == "completed":
-            return gr.update(value=result), 0, "合成成功！"
+            return gr.update(value=result), 0, "Success!"
         else:
-            return gr.update(), 0, f"失败: {status}"
+            return gr.update(), 0, f"Failed: {status}"
