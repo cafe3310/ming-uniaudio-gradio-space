@@ -615,7 +615,7 @@ class GradioInterface:
 
             with gr.Row(variant="panel", elem_id="header-row"):
                 gr.HTML(
-                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">百灵系列 Ming-omni-tts 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。 <a href="https://huggingface.co/collections/inclusionAI/ming-v2" target="_blank" style="color: #2b7fff; text-decoration: none;">[Ming-v2 系列]</a></p></div></div>"""
+                    f"""<div style="position: relative; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px 0;"><div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%);"><img src="{base64_src}" alt="Logo" style="height: 60px;"></div><div style="text-align: center;"><h1 style="margin: 0; font-size: 1.8em;">Ling 系列 Ming-omni-tts 语音模型演示</h1><p style="margin: 5px 0 0 0; font-size: 1.1em; color: #555;">提供一站式语音识别、语音编辑和语音合成能力。 <a href="https://huggingface.co/collections/inclusionAI/ming-v2" target="_blank" style="color: #2b7fff; text-decoration: none;">[Ming-v2 系列]</a></p></div></div>"""
                 )
 
             with gr.Tabs():
