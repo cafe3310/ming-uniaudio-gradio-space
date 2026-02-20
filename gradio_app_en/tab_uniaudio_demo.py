@@ -173,6 +173,8 @@ def load_and_merge_ips(original_dict: dict, filepath: str) -> dict:
 
 IP_DICT = load_and_merge_ips(IP_DICT, "uniaudio_ip_list.txt")
 
+REFERENCE_AUDIO_WARNING = "**⚠️ Note: Reference audio works best at approximately 3-7 seconds. Longer audio may produce unexpected output. You can trim the audio using the Audio block below.**"
+
 
 class MingOmniTTSDemoTab:
     """
@@ -208,6 +210,7 @@ class MingOmniTTSDemoTab:
                                 value="emotion",
                             )
                             i_tts_text = gr.Textbox(label="Synthesis Text", info="Enter the text for speech synthesis.")
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             i_tts_prompt = gr.Audio(
                                 type="filepath",
                                 label="Reference Audio (3-7s) - Upload clear speech to clone timbre.",
@@ -296,6 +299,7 @@ class MingOmniTTSDemoTab:
                             zs_tts_text = gr.Textbox(
                                 label="Target Text", info="Enter the text for speech synthesis."
                             )
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             zs_tts_prompt = gr.Audio(
                                 type="filepath",
                                 label="Reference Audio (3-7s) - Upload clear speech to clone timbre.",
@@ -317,11 +321,13 @@ class MingOmniTTSDemoTab:
                                 label="Dialogue Script",
                                 info="Use 'speaker_1:', 'speaker_2:' to distinguish speakers. e.g. speaker_1: Hello!\n speaker_2: Hi there!",
                             )
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             pod_prompt1 = gr.Audio(
                                 type="filepath",
                                 label="Speaker 1 Reference Audio",
                                 sources=["upload", "microphone"],
                             )
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             pod_prompt2 = gr.Audio(
                                 type="filepath",
                                 label="Speaker 2 Reference Audio",
@@ -341,6 +347,7 @@ class MingOmniTTSDemoTab:
                     with gr.Row():
                         with gr.Column(scale=2):
                             swb_text = gr.Textbox(label="Speech Text")
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             swb_prompt = gr.Audio(
                                 type="filepath",
                                 label="Speaker Reference Audio",
