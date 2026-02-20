@@ -177,6 +177,8 @@ def load_and_merge_ips(original_dict: dict, filepath: str) -> dict:
 
 IP_DICT = load_and_merge_ips(IP_DICT, "uniaudio_ip_list.txt")
 
+REFERENCE_AUDIO_WARNING = "**⚠️ 注意：参考音频建议长度约为 3-7 秒，过长的音频可能导致输出异常。您可以使用下方的音频控件对音频进行剪辑。**"
+
 
 class MingOmniTTSDemoTab:
     """
@@ -212,6 +214,7 @@ class MingOmniTTSDemoTab:
                                 value="emotion",
                             )
                             i_tts_text = gr.Textbox(label="合成文本", info="输入要合成的语音文本。")
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             i_tts_prompt = gr.Audio(
                                 type="filepath",
                                 label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆基础音色。",
@@ -292,6 +295,7 @@ class MingOmniTTSDemoTab:
                             zs_tts_text = gr.Textbox(
                                 label="目标文本", info="输入您想合成的语音文本。"
                             )
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             zs_tts_prompt = gr.Audio(
                                 type="filepath",
                                 label="参考音频 (3-7秒)上传一段清晰的人声音频用于克隆音色。",
@@ -313,11 +317,13 @@ class MingOmniTTSDemoTab:
                                 label="对话脚本",
                                 info="使用 'speaker_1:', 'speaker_2:' 区分不同说话人。e.g. speaker_1:就比如说各种就是给别人提供，提供帮助的都可以说是服务的\n speaker_2:是的 不管是什么，就是说感觉都是，大家都，都可以说是服务业的一方面\n",
                             )
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             pod_prompt1 = gr.Audio(
                                 type="filepath",
                                 label="说话人1参考音频",
                                 sources=["upload", "microphone"],
                             )
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             pod_prompt2 = gr.Audio(
                                 type="filepath",
                                 label="说话人2参考音频",
@@ -337,6 +343,7 @@ class MingOmniTTSDemoTab:
                     with gr.Row():
                         with gr.Column(scale=2):
                             swb_text = gr.Textbox(label="语音文本")
+                            gr.Markdown(REFERENCE_AUDIO_WARNING)
                             swb_prompt = gr.Audio(
                                 type="filepath",
                                 label="说话人参考音频",
