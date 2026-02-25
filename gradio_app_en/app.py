@@ -622,7 +622,7 @@ class GradioInterface:
                 # Introduce UniAudio V4 MOE Comprehensive Demo Tab
                 self.uniaudio_demo_tab.create_tab()
 
-                with gr.Tab("Core Capabilities (ASR/Edit/TTS)"):
+                with gr.Tab("Core Capabilities (ASR/Edit/TTS)", visible=False):
                     with gr.Row(equal_height=True):
                         with gr.Column(scale=1, min_width="300px"):
                             with gr.Group(elem_classes="equal-height-group"):
